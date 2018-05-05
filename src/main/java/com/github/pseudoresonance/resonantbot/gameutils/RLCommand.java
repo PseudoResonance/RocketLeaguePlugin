@@ -123,7 +123,11 @@ public class RLCommand implements Command {
 				}
 			}
 		}
-		e.getChannel().sendMessage("Valid subcommands: `platforms`, `seasons`, `ranks`").queue();
+		if (e.getAuthor().getIdLong() == Config.getOwner()) {
+			e.getChannel().sendMessage("Valid subcommands: `token`, `ratelimit`, `platforms`, `seasons`, `ranks`").queue();
+		} else {
+			e.getChannel().sendMessage("Valid subcommands: `platforms`, `seasons`, `ranks`").queue();
+		}
 		return;
 	}
 
