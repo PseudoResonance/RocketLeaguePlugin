@@ -261,26 +261,31 @@ public class RLCommand implements Command {
 		EmbedBuilder embed = new EmbedBuilder();
 		embed.setColor(new Color(6, 128, 211));
 		embed.setFooter("https://rocketleaguestats.com/", null);
-		HashMap<String, Integer> players = new HashMap<String, Integer>();
+		HashMap<Integer, Integer> players = new HashMap<Integer, Integer>();
 		for (Playlist p : data.getValue()) {
 			int i = 0;
-			if (players.containsKey(p.getName())) {
-				i = players.get(p.getName());
+			if (players.containsKey(p.getId())) {
+				i = players.get(p.getId());
 			}
 			i += p.getPlayers();
-			players.put(p.getName(), i);
+			players.put(p.getId(), i);
 		}
 		String ret = "";
-		boolean first = true;
-		for (String s : players.keySet()) {
-			if (first) {
-				first = false;
-			} else {
-				ret += "\n";
-			}
-			ret += "" + s + ": `" + players.get(s) + " Playing`";
-		}
-		embed.addField("Global Playlists:", ret, false);
+		ret += "Ranked Duel: `" + players.get(Playlist.RANKED_DUEL) + " Playing`\n";
+		ret += "Ranked Doubles: `" + players.get(Playlist.RANKED_DOUBLES) + " Playing`\n";
+		ret += "Ranked Solo Standard: `" + players.get(Playlist.RANKED_SOLO_STANDARD) + " Playing`\n";
+		ret += "Ranked Standard: `" + players.get(Playlist.RANKED_STANDARD) + " Playing`\n";
+		ret += "Duel: `" + players.get(Playlist.DUEL) + " Playing`\n";
+		ret += "Doubles: `" + players.get(Playlist.DOUBLES) + " Playing`\n";
+		ret += "Standard: `" + players.get(Playlist.STANDARD) + " Playing`\n";
+		ret += "Snow Day: `" + players.get(Playlist.SNOW_DAY) + " Playing`\n";
+		ret += "Rocket Labs: `" + players.get(Playlist.ROCKET_LABS) + " Playing`\n";
+		ret += "Hoops: `" + players.get(Playlist.HOOPS) + " Playing`\n";
+		ret += "Rumble: `" + players.get(Playlist.RUMBLE) + " Playing`\n";
+		ret += "Drop Shot: `" + players.get(Playlist.DROPSHOT) + " Playing`\n";
+		ret += "Chaos: `" + players.get(Playlist.CHAOS) + " Playing`\n";
+		ret += "Mutator Mashup: `" + players.get(Playlist.MUTATOR_MASHUP) + " Playing`\n";
+		embed.addField("Global Playlists:", ret, true);
 		channel.sendMessage(embed.build()).queue();
 	}
 
@@ -289,29 +294,34 @@ public class RLCommand implements Command {
 		EmbedBuilder embed = new EmbedBuilder();
 		embed.setColor(new Color(6, 128, 211));
 		embed.setFooter("https://rocketleaguestats.com/", null);
-		HashMap<String, Integer> players = new HashMap<String, Integer>();
+		HashMap<Integer, Integer> players = new HashMap<Integer, Integer>();
 		Platform pl = playlistRequest.remove(data.getID());
 		for (Playlist p : data.getValue()) {
 			if (p.getPlatform() == pl) {
 				int i = 0;
-				if (players.containsKey(p.getName())) {
-					i = players.get(p.getName());
+				if (players.containsKey(p.getId())) {
+					i = players.get(p.getId());
 				}
 				i += p.getPlayers();
-				players.put(p.getName(), i);
+				players.put(p.getId(), i);
 			}
 		}
 		String ret = "";
-		boolean first = true;
-		for (String s : players.keySet()) {
-			if (first) {
-				first = false;
-			} else {
-				ret += "\n";
-			}
-			ret += "" + s + ": `" + players.get(s) + " Playing`";
-		}
-		embed.addField(pl.getName() + " Playlists:", ret, false);
+		ret += "Ranked Duel: `" + players.get(Playlist.RANKED_DUEL) + " Playing`\n";
+		ret += "Ranked Doubles: `" + players.get(Playlist.RANKED_DOUBLES) + " Playing`\n";
+		ret += "Ranked Solo Standard: `" + players.get(Playlist.RANKED_SOLO_STANDARD) + " Playing`\n";
+		ret += "Ranked Standard: `" + players.get(Playlist.RANKED_STANDARD) + " Playing`\n";
+		ret += "Duel: `" + players.get(Playlist.DUEL) + " Playing`\n";
+		ret += "Doubles: `" + players.get(Playlist.DOUBLES) + " Playing`\n";
+		ret += "Standard: `" + players.get(Playlist.STANDARD) + " Playing`\n";
+		ret += "Snow Day: `" + players.get(Playlist.SNOW_DAY) + " Playing`\n";
+		ret += "Rocket Labs: `" + players.get(Playlist.ROCKET_LABS) + " Playing`\n";
+		ret += "Hoops: `" + players.get(Playlist.HOOPS) + " Playing`\n";
+		ret += "Rumble: `" + players.get(Playlist.RUMBLE) + " Playing`\n";
+		ret += "Drop Shot: `" + players.get(Playlist.DROPSHOT) + " Playing`\n";
+		ret += "Chaos: `" + players.get(Playlist.CHAOS) + " Playing`\n";
+		ret += "Mutator Mashup: `" + players.get(Playlist.MUTATOR_MASHUP) + " Playing`\n";
+		embed.addField(pl.getName() + " Playlists:", ret, true);
 		channel.sendMessage(embed.build()).queue();
 	}
 
