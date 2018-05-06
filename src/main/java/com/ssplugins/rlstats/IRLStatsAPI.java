@@ -19,7 +19,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class IRLStatsAPI implements RLStatsAPI {
 	
@@ -40,6 +39,15 @@ public class IRLStatsAPI implements RLStatsAPI {
 	private HashMap<Integer, List<Tier>> tiersCache = new HashMap<Integer, List<Tier>>();
 	private HashMap<Integer, Long> tiersTime = new HashMap<Integer, Long>();
 	
+	private List<Playlist> playlistsCache = null;
+	private long playlistsTime = 0;
+	
+	private HashMap<String, Player> playerCache = new HashMap<String, Player>();
+	private HashMap<String, Long> playerTime = new HashMap<String, Long>();
+	
+	private HashMap<String, SearchResultPage> playerSearchCache = new HashMap<String, SearchResultPage>();
+	private HashMap<String, Long> playerSearchTime = new HashMap<String, Long>();
+	
 	private RequestQueue queue = new RequestQueue(this);
 	
 	IRLStatsAPI() {}
@@ -49,15 +57,6 @@ public class IRLStatsAPI implements RLStatsAPI {
 	}
 	
 	// Utility Methods
-	
-	private <T> T getFutureBlocking(CompletableFuture<T> future, Supplier<T> fallback) {
-		try {
-			return future.get();
-		} catch (InterruptedException | ExecutionException e) {
-			e.printStackTrace();
-		}
-		return fallback.get();
-	}
 	
 	private <T> List<T> jsonNodeToObjectList(JsonNode node, Function<JSONObject, T> converter) {
 		List<T> list = new ArrayList<>();
@@ -127,11 +126,6 @@ public class IRLStatsAPI implements RLStatsAPI {
 	}
 	
 	@Override
-	public APIReturn<Long, List<PlatformInfo>> getPlatformsBlocking(long messageID) {
-		return getFutureBlocking(getPlatforms(messageID), () -> new APIReturn<Long, List<PlatformInfo>>(0L, null));
-	}
-	
-	@Override
 	public CompletableFuture<APIReturn<Long, List<Tier>>> getTiers(long messageID) {
 		basicCheck();
 		return CompletableFuture.supplyAsync(() -> {
@@ -176,16 +170,6 @@ public class IRLStatsAPI implements RLStatsAPI {
 	}
 	
 	@Override
-	public APIReturn<Long, List<Tier>> getTiersBlocking(long messageID) {
-		return getFutureBlocking(getTiers(messageID), () -> new APIReturn<Long, List<Tier>>(0L, null));
-	}
-	
-	@Override
-	public APIReturn<Long, APIReturn<Integer, List<Tier>>> getTiersBlocking(int season, long messageID) {
-		return getFutureBlocking(getTiers(season, messageID), () -> new APIReturn<Long, APIReturn<Integer, List<Tier>>>(0L, null));
-	}
-	
-	@Override
 	public CompletableFuture<APIReturn<Long, List<Season>>> getSeasons(long messageID) {
 		basicCheck();
 		return CompletableFuture.supplyAsync(() -> {
@@ -208,17 +192,20 @@ public class IRLStatsAPI implements RLStatsAPI {
 	}
 	
 	@Override
-	public APIReturn<Long, List<Season>> getSeasonsBlocking(long messageID) {
-		return getFutureBlocking(getSeasons(messageID), () -> new APIReturn<Long, List<Season>>(0L, null));
-	}
-	
-	@Override
 	public CompletableFuture<APIReturn<Long, List<Playlist>>> getPlaylistInfo(long messageID) {
 		basicCheck();
 		return CompletableFuture.supplyAsync(() -> {
+			if (playlistsCache != null) {
+				if (System.currentTimeMillis() - playlistsTime <= 300000) {
+					return new APIReturn<Long, List<Playlist>>(messageID, playlistsCache);
+				}
+			}
 			CompletableFuture<JsonNode> response = queue.get(key, apiVersion, "/data/playlists", null);
 			try {
-				return new APIReturn<Long, List<Playlist>>(messageID, jsonNodeToObjectList(response.get(), Playlist::new));
+				List<Playlist> list = jsonNodeToObjectList(response.get(), Playlist::new);
+				playlistsCache = list;
+				playlistsTime = System.currentTimeMillis();
+				return new APIReturn<Long, List<Playlist>>(messageID, list);
 			} catch (InterruptedException | ExecutionException | IllegalArgumentException e) {
 				exception(e);
 			}
@@ -227,18 +214,22 @@ public class IRLStatsAPI implements RLStatsAPI {
 	}
 	
 	@Override
-	public APIReturn<Long, List<Playlist>> getPlaylistInfoBlocking(long messageID) {
-		return getFutureBlocking(getPlaylistInfo(messageID), () -> new APIReturn<Long, List<Playlist>>(0L, null));
-	}
-	
-	@Override
 	public CompletableFuture<APIReturn<Long, Player>> getPlayer(String id, int platform, long messageID) {
 		basicCheck();
 		return CompletableFuture.supplyAsync(() -> {
+			Player player = playerCache.get(platform + "|" + id);
+			if (player != null) {
+				if (playerTime.get(platform + "|" + id) > System.currentTimeMillis()) {
+					return new APIReturn<Long, Player>(messageID, player);
+				}
+			}
 			CompletableFuture<JsonNode> response = queue.get(key, apiVersion, "/player", Query.create("unique_id", id).add("platform_id", String.valueOf(platform)));
 			try {
 				JsonNode node = response.get();
-				return new APIReturn<Long, Player>(messageID, new Player(node.getObject()));
+				Player pl = new Player(node.getObject());
+				playerCache.put(platform + "|" + id, pl);
+				playerTime.put(platform + "|" + id, pl.getNextUpdate());
+				return new APIReturn<Long, Player>(messageID, pl);
 			} catch (InterruptedException | ExecutionException e) {
 				exception(e);
 			}
@@ -249,16 +240,6 @@ public class IRLStatsAPI implements RLStatsAPI {
 	@Override
 	public CompletableFuture<APIReturn<Long, Player>> getPlayer(String id, Platform platform, long messageID) {
 		return getPlayer(id, platform.getId(), messageID);
-	}
-	
-	@Override
-	public APIReturn<Long, Player> getPlayerBlocking(String id, int platform, long messageID) {
-		return getFutureBlocking(getPlayer(id, platform, messageID), () -> null);
-	}
-	
-	@Override
-	public APIReturn<Long, Player> getPlayerBlocking(String id, Platform platform, long messageID) {
-		return getPlayerBlocking(id, platform.getId(), messageID);
 	}
 	
 	@Override
@@ -284,23 +265,22 @@ public class IRLStatsAPI implements RLStatsAPI {
 	}
 	
 	@Override
-	public APIReturn<Long, List<Player>> getPlayersBlocking(Collection<PlayerRequest> collection, long messageID) {
-		return getFutureBlocking(getPlayers(collection, messageID), () -> new APIReturn<Long, List<Player>>(0L, null));
-	}
-	
-	@Override
-	public APIReturn<Long, List<Player>> getPlayersBlocking(PlayerRequest[] requests, long messageID) {
-		return getFutureBlocking(getPlayers(requests, messageID), () -> new APIReturn<Long, List<Player>>(0L, null));
-	}
-	
-	@Override
 	public CompletableFuture<APIReturn<Long, SearchResultPage>> searchPlayers(String displayName, int page, long messageID) {
 		basicCheck();
 		return CompletableFuture.supplyAsync(() -> {
+			SearchResultPage searchPage = playerSearchCache.get(displayName.toLowerCase() + "|" + page);
+			if (searchPage != null) {
+				if (System.currentTimeMillis() - playerSearchTime.get(displayName.toLowerCase() + "|" + page) <= 600000) {
+					return new APIReturn<Long, SearchResultPage>(messageID, searchPage);
+				}
+			}
 			Future<JsonNode> response = queue.get(key, apiVersion, "/search/players", Query.create("display_name", displayName).add("page", String.valueOf(page)));
 			try {
 				JsonNode node = response.get();
-				return new APIReturn<Long, SearchResultPage>(messageID, new SearchResultPage(node.getObject()));
+				SearchResultPage search = new SearchResultPage(node.getObject());
+				playerSearchCache.put(displayName.toLowerCase() + "|" + page, search);
+				playerSearchTime.put(displayName.toLowerCase() + "|" + page, System.currentTimeMillis());
+				return new APIReturn<Long, SearchResultPage>(messageID, search);
 			} catch (InterruptedException | ExecutionException e) {
 				exception(e);
 			}
@@ -310,17 +290,7 @@ public class IRLStatsAPI implements RLStatsAPI {
 	
 	@Override
 	public CompletableFuture<APIReturn<Long, SearchResultPage>> searchPlayers(String displayName, long messageID) {
-		return searchPlayers(displayName, 0);
-	}
-	
-	@Override
-	public APIReturn<Long, SearchResultPage> searchPlayersBlocking(String displayName, int page, long messageID) {
-		return getFutureBlocking(searchPlayers(displayName, page), () -> null);
-	}
-	
-	@Override
-	public APIReturn<Long, SearchResultPage> searchPlayersBlocking(String displayName, long messageID) {
-		return getFutureBlocking(searchPlayers(displayName, messageID), () -> null);
+		return searchPlayers(displayName, 0, messageID);
 	}
 	
 	@Override
@@ -338,11 +308,6 @@ public class IRLStatsAPI implements RLStatsAPI {
 	}
 	
 	@Override
-	public APIReturn<Long, List<Player>> getRankedLeaderboardBlocking(int playlistId, long messageID) {
-		return getFutureBlocking(getRankedLeaderboard(playlistId, messageID), () -> new APIReturn<Long, List<Player>>(0L, null));
-	}
-	
-	@Override
 	public CompletableFuture<APIReturn<Long, List<Player>>> getStatLeaderboard(Stat stat, long messageID) {
 		if (stat == null) throw new IllegalArgumentException("Stat parameter is null.");
 		basicCheck();
@@ -355,10 +320,5 @@ public class IRLStatsAPI implements RLStatsAPI {
 			}
 			return new APIReturn<Long, List<Player>>(messageID, new ArrayList<>());
 		});
-	}
-	
-	@Override
-	public APIReturn<Long, List<Player>> getStatLeaderboardBlocking(Stat stat, long messageID) {
-		return getFutureBlocking(getStatLeaderboard(stat, messageID), () -> new APIReturn<Long, List<Player>>(0L, null));
 	}
 }

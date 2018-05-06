@@ -1,6 +1,8 @@
 package com.github.pseudoresonance.resonantbot.gameutils;
 
 import java.awt.Color;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -13,8 +15,14 @@ import com.github.pseudoresonance.resonantbot.api.Command;
 import com.ssplugins.rlstats.APIReturn;
 import com.ssplugins.rlstats.RLStats;
 import com.ssplugins.rlstats.RLStatsAPI;
+import com.ssplugins.rlstats.entities.Platform;
 import com.ssplugins.rlstats.entities.PlatformInfo;
+import com.ssplugins.rlstats.entities.Player;
+import com.ssplugins.rlstats.entities.Playlist;
+import com.ssplugins.rlstats.entities.SearchResultPage;
 import com.ssplugins.rlstats.entities.Season;
+import com.ssplugins.rlstats.entities.Stat;
+import com.ssplugins.rlstats.entities.Stats;
 import com.ssplugins.rlstats.entities.Tier;
 
 import net.dv8tion.jda.core.EmbedBuilder;
@@ -26,6 +34,9 @@ public class RLCommand implements Command {
 	private static RLStatsAPI stats = null;
 
 	private static HashMap<Long, MessageChannel> returnQueue = new HashMap<Long, MessageChannel>();
+
+	private static HashMap<Long, Platform> playlistRequest = new HashMap<Long, Platform>();
+	private static HashMap<Long, Platform> playerRequest = new HashMap<Long, Platform>();
 
 	public void onCommand(MessageReceivedEvent e, String command, String[] args) {
 		if (args.length == 0) {
@@ -120,13 +131,49 @@ public class RLCommand implements Command {
 						returnQueue.put(e.getMessageIdLong(), e.getChannel());
 					}
 					return;
+				case "playlists":
+					if (args.length > 1) {
+						Platform pl = Platform.fromName(args[1].toUpperCase());
+						if (pl != null) {
+							CompletableFuture<APIReturn<Long, List<Playlist>>> playlists = stats.getPlaylistInfo(e.getMessageIdLong());
+							playlists.thenAccept(this::notifyPlaylistsPlatform);
+							returnQueue.put(e.getMessageIdLong(), e.getChannel());
+							playlistRequest.put(e.getMessageIdLong(), pl);
+						} else {
+							e.getChannel().sendMessage("Please add a valid platform name!").queue();
+						}
+					} else {
+						CompletableFuture<APIReturn<Long, List<Playlist>>> playlists = stats.getPlaylistInfo(e.getMessageIdLong());
+						playlists.thenAccept(this::notifyPlaylists);
+						returnQueue.put(e.getMessageIdLong(), e.getChannel());
+					}
+					return;
+				case "player":
+					if (args.length > 2) {
+						Platform pl = Platform.fromName(args[1].toUpperCase());
+						if (pl != null) {
+							CompletableFuture<APIReturn<Long, SearchResultPage>> search = stats.searchPlayers(args[2], e.getMessageIdLong());
+							search.thenAccept(this::notifySearch);
+							returnQueue.put(e.getMessageIdLong(), e.getChannel());
+							playerRequest.put(e.getMessageIdLong(), pl);
+						} else {
+							e.getChannel().sendMessage("Please use a valid platform name!").queue();
+						}
+					} else if (args.length == 2) {
+						CompletableFuture<APIReturn<Long, SearchResultPage>> search = stats.searchPlayers(args[1], e.getMessageIdLong());
+						search.thenAccept(this::notifySearch);
+						returnQueue.put(e.getMessageIdLong(), e.getChannel());
+					} else {
+						e.getChannel().sendMessage("Please add a player name or platform and player name to search for!").queue();
+					}
+					return;
 				}
 			}
 		}
 		if (e.getAuthor().getIdLong() == Config.getOwner()) {
-			e.getChannel().sendMessage("Valid subcommands: `token`, `ratelimit`, `platforms`, `seasons`, `ranks`").queue();
+			e.getChannel().sendMessage("Valid subcommands: `token`, `ratelimit`, `platforms`, `seasons`, `ranks`, `playlists`, `player`").queue();
 		} else {
-			e.getChannel().sendMessage("Valid subcommands: `platforms`, `seasons`, `ranks`").queue();
+			e.getChannel().sendMessage("Valid subcommands: `platforms`, `seasons`, `ranks`, `playlists`, `player`").queue();
 		}
 		return;
 	}
@@ -160,9 +207,9 @@ public class RLCommand implements Command {
 				ret += "\n";
 			}
 			if (s.getEndTime() == -1) {
-				ret += "`" + s.getId() + "`: Started: `" + formatTime(s.getStartTime()) + "` Ended: `No`";
+				ret += "`" + s.getId() + "`: Started: `" + formatDate(s.getStartTime()) + "` Ended: `No`";
 			} else {
-				ret += "`" + s.getId() + "`: Started: `" + formatTime(s.getStartTime()) + "` Ended: `" + formatTime(s.getEndTime()) + "`";
+				ret += "`" + s.getId() + "`: Started: `" + formatDate(s.getStartTime()) + "` Ended: `" + formatDate(s.getEndTime()) + "`";
 			}
 		}
 		embed.addField("Seasons:", ret, false);
@@ -209,6 +256,131 @@ public class RLCommand implements Command {
 		channel.sendMessage(embed.build()).queue();
 	}
 
+	void notifyPlaylists(APIReturn<Long, List<Playlist>> data) {
+		MessageChannel channel = returnQueue.remove(data.getID());
+		EmbedBuilder embed = new EmbedBuilder();
+		embed.setColor(new Color(6, 128, 211));
+		embed.setFooter("https://rocketleaguestats.com/", null);
+		HashMap<String, Integer> players = new HashMap<String, Integer>();
+		for (Playlist p : data.getValue()) {
+			int i = 0;
+			if (players.containsKey(p.getName())) {
+				i = players.get(p.getName());
+			}
+			i += p.getPlayers();
+			players.put(p.getName(), i);
+		}
+		String ret = "";
+		boolean first = true;
+		for (String s : players.keySet()) {
+			if (first) {
+				first = false;
+			} else {
+				ret += "\n";
+			}
+			ret += "" + s + ": `" + players.get(s) + " Playing`";
+		}
+		embed.addField("Global Playlists:", ret, false);
+		channel.sendMessage(embed.build()).queue();
+	}
+
+	void notifyPlaylistsPlatform(APIReturn<Long, List<Playlist>> data) {
+		MessageChannel channel = returnQueue.remove(data.getID());
+		EmbedBuilder embed = new EmbedBuilder();
+		embed.setColor(new Color(6, 128, 211));
+		embed.setFooter("https://rocketleaguestats.com/", null);
+		HashMap<String, Integer> players = new HashMap<String, Integer>();
+		Platform pl = playlistRequest.remove(data.getID());
+		for (Playlist p : data.getValue()) {
+			if (p.getPlatform() == pl) {
+				int i = 0;
+				if (players.containsKey(p.getName())) {
+					i = players.get(p.getName());
+				}
+				i += p.getPlayers();
+				players.put(p.getName(), i);
+			}
+		}
+		String ret = "";
+		boolean first = true;
+		for (String s : players.keySet()) {
+			if (first) {
+				first = false;
+			} else {
+				ret += "\n";
+			}
+			ret += "" + s + ": `" + players.get(s) + " Playing`";
+		}
+		embed.addField(pl.getName() + " Playlists:", ret, false);
+		channel.sendMessage(embed.build()).queue();
+	}
+
+	void notifySearch(APIReturn<Long, SearchResultPage> data) {
+		MessageChannel channel = returnQueue.remove(data.getID());
+		SearchResultPage result = data.getValue();
+		Platform platform = playerRequest.remove(data.getID());
+		List<Player> players = result.getResults();
+		Player p = null;
+		if (result.getTotalResults() > 0) {
+			if (platform != null) {
+				for (Player pl : players) {
+					if (pl.getPlatform() == platform) {
+						p = pl;
+						break;
+					}
+				}
+			} else {
+				p = players.get(0);
+			}
+			if (p != null) {
+				EmbedBuilder embed = new EmbedBuilder();
+				embed.setColor(new Color(6, 128, 211));
+				embed.setFooter("https://rocketleaguestats.com/", null);
+				String url = p.getAvatarUrl();
+				if (url == null)
+					url = "https://cdn.discordapp.com/attachments/376557695420989441/435138854693896192/rls_partner_vertical_small.png";
+				embed.setThumbnail(url);
+				embed.setDescription("[" + p.getDisplayName() + "'s Stats on " + p.getPlatform().getName() + ":](" + p.getProfileUrl() + ")");
+				Stats s = p.getStats();
+				String stats = "";
+				int wins = s.getStat(Stat.WINS);
+				int shots = s.getStat(Stat.SHOTS);
+				int goals = s.getStat(Stat.GOALS);
+				int assists = s.getStat(Stat.ASSISTS);
+				int saves = s.getStat(Stat.SAVES);
+				int mvp = s.getStat(Stat.MVP);
+				double shotAccuracy = ((double) goals / (double) shots) * 100.0;
+				double mvpAccuracy = ((double) mvp / (double) wins) * 100.0;
+				stats += "**Wins:** " + wins + "\n";
+				stats += "**Shots:** " + shots + "\n";
+				stats += "**Goals:** " + goals + "\n";
+				stats += "**Shot Accuracy:** " + new BigDecimal(String.valueOf(shotAccuracy)).setScale(2, RoundingMode.HALF_UP) + "%\n";
+				stats += "**Assists:** " + assists + "\n";
+				stats += "**Saves:** " + saves + "\n";
+				stats += "**MVPs:** " + mvp + "\n";
+				stats += "**MVP:** " + new BigDecimal(String.valueOf(mvpAccuracy)).setScale(2, RoundingMode.HALF_UP) + "%";
+				embed.addField("Stats:", stats, true);
+				int total = goals + assists + saves;
+				double goal = ((double) goals / (double) total) * 100.0;
+				double assist = ((double) assists / (double) total) * 100.0;
+				double save = ((double) saves / (double) total) * 100.0;
+				String style = "";
+				style += "**Goals:** " + new BigDecimal(String.valueOf(goal)).setScale(2, RoundingMode.HALF_EVEN) + "%\n";
+				style += "**Assists:** " + new BigDecimal(String.valueOf(assist)).setScale(2, RoundingMode.HALF_EVEN) + "%\n";
+				style += "**Saves:** " + new BigDecimal(String.valueOf(save)).setScale(2, RoundingMode.HALF_EVEN) + "%";
+				embed.addField("Play Style:", style, true);
+				String time = "";
+				time += "**Joined:** " + formatDate(p.getCreated()) + "\n";
+				time += "**Updated:** " + formatDateTime(p.getUpdated()) + "\n";
+				time += "**Next Update:** " + formatDateTime(p.getNextUpdate()) + "\n";
+				embed.addField("Data:", time, true);
+				channel.sendMessage(embed.build()).queue();
+				return;
+			}
+		}
+		channel.sendMessage("Please add a valid player name or platform and player name to search for!").queue();
+	}
+
 	public String getDesc() {
 		return "Displays Rocket League stats";
 	}
@@ -217,9 +389,17 @@ public class RLCommand implements Command {
 		return false;
 	}
 
-	public static String formatTime(long unix) {
+	public static String formatDate(long unix) {
 		Date date = new Date(unix * 1000L);
 		SimpleDateFormat sdf = new SimpleDateFormat("M/dd/yyyy");
+		sdf.setTimeZone(TimeZone.getTimeZone("America/Los_Angeles"));
+		String out = sdf.format(date);
+		return out;
+	}
+
+	public static String formatDateTime(long unix) {
+		Date date = new Date(unix * 1000L);
+		SimpleDateFormat sdf = new SimpleDateFormat("M/dd/yyyy HH:mm:ss");
 		sdf.setTimeZone(TimeZone.getTimeZone("America/Los_Angeles"));
 		String out = sdf.format(date);
 		return out;
