@@ -8,6 +8,7 @@ public class GameUtils extends Plugin {
 	public void onEnable() {
 		CommandManager.registerCommand("mc", new MCCommand(), this);
 		CommandManager.registerCommand("rl", new RLCommand(), this);
+		CommandManager.registerCommand("steam", new SteamCommand(), this);
 	}
 	
 	public void onDisable() {

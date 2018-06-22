@@ -3,7 +3,7 @@ package com.github.pseudoresonance.resonantbot.gameutils;
 import java.awt.Color;
 import java.io.InputStream;
 import java.net.URL;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import javax.json.Json;
 import javax.json.JsonException;
@@ -19,7 +19,7 @@ import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 
 public class MCCommand implements Command {
 	
-	private static HashMap<String, MCPlayer> players = new HashMap<String, MCPlayer>();
+	private static LinkedHashMap<String, MCPlayer> players = new LinkedHashMap<String, MCPlayer>();
 
 	public void onCommand(MessageReceivedEvent e, String command, String[] args) {
 		if (args.length > 0) {
@@ -88,10 +88,12 @@ public class MCCommand implements Command {
 	}
 	
 	public static void purge() {
-		if (players.size() >= 1000)
-			for (String name : players.keySet())
-				if (players.get(name).isExpired())
-					players.remove(name);
+		for (String name : players.keySet()) {
+			if (players.get(name).isExpired())
+				players.remove(name);
+			else
+				break;
+		}
 	}
 	
 	public class MCPlayer {
@@ -121,6 +123,5 @@ public class MCCommand implements Command {
 		}
 
 	}
-
 
 }

@@ -270,7 +270,7 @@ public class IRLStatsAPI implements RLStatsAPI {
 		return CompletableFuture.supplyAsync(() -> {
 			SearchResultPage searchPage = playerSearchCache.get(displayName.toLowerCase() + "|" + page);
 			if (searchPage != null) {
-				if (System.currentTimeMillis() - playerSearchTime.get(displayName.toLowerCase() + "|" + page) <= 600000) {
+				if (System.currentTimeMillis() - playerSearchTime.get(displayName.toLowerCase() + "|" + page) <= 300000) {
 					return new APIReturn<Long, SearchResultPage>(messageID, searchPage);
 				}
 			}
