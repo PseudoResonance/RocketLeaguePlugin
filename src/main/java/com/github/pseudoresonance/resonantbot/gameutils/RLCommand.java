@@ -8,8 +8,10 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import javax.json.JsonNumber;
 
@@ -22,8 +24,10 @@ import com.ssplugins.rlstats.entities.Platform;
 import com.ssplugins.rlstats.entities.PlatformInfo;
 import com.ssplugins.rlstats.entities.Player;
 import com.ssplugins.rlstats.entities.Playlist;
+import com.ssplugins.rlstats.entities.PlaylistInfo;
 import com.ssplugins.rlstats.entities.SearchResultPage;
 import com.ssplugins.rlstats.entities.Season;
+import com.ssplugins.rlstats.entities.SeasonInfo;
 import com.ssplugins.rlstats.entities.Stat;
 import com.ssplugins.rlstats.entities.Stats;
 import com.ssplugins.rlstats.entities.Tier;
@@ -39,6 +43,16 @@ public class RLCommand implements Command {
 	private static LinkedHashMap<Long, MessageChannel> returnQueue = new LinkedHashMap<Long, MessageChannel>();
 
 	private static LinkedHashMap<Long, Platform> playlistRequest = new LinkedHashMap<Long, Platform>();
+
+	private static LinkedHashMap<Long, Integer> playerSeason = new LinkedHashMap<Long, Integer>();
+
+	private static LinkedHashMap<Long, Stat> leaderboardStat = new LinkedHashMap<Long, Stat>();
+	
+	private static int season = 0;
+	private static long seasonUpdate = 0;
+	
+	private static HashMap<Integer, String> tiers = new HashMap<Integer, String>();
+	private static long tiersUpdate = 0;
 
 	public void onCommand(MessageReceivedEvent e, String command, String[] args) {
 		if (args.length == 0) {
@@ -119,6 +133,43 @@ public class RLCommand implements Command {
 					returnQueue.put(e.getMessageIdLong(), e.getChannel());
 					seasons.exceptionally(ex -> {e.getChannel().sendMessage("Could not get seasons!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
 					return;
+				case "leaderboard":
+					if (args.length > 1) {
+						Stat stat = null;
+						switch (args[1].toLowerCase()) {
+						case "wins":
+							stat = Stat.WINS;
+							break;
+						case "shots":
+							stat = Stat.SHOTS;
+							break;
+						case "goals":
+							stat = Stat.GOALS;
+							break;
+						case "assists":
+							stat = Stat.ASSISTS;
+							break;
+						case "saves":
+							stat = Stat.SAVES;
+							break;
+						case "mvps":
+							stat = Stat.MVP;
+							break;
+						default:
+							stat = Stat.WINS;
+							break;
+						}
+						if (stat != null) {
+							CompletableFuture<APIReturn<Long, List<Player>>> leaderboard = stats.getStatLeaderboard(stat, e.getMessageIdLong());
+							leaderboard.thenAccept(this::notifyLeaderboard);
+							returnQueue.put(e.getMessageIdLong(), e.getChannel());
+							leaderboardStat.put(e.getMessageIdLong(), stat);
+							leaderboard.exceptionally(ex -> {e.getChannel().sendMessage("Could not get leaderboard!").queue(); returnQueue.remove(e.getMessageIdLong()); leaderboardStat.remove(e.getMessageIdLong()); return null;});
+							return;
+						}
+					}
+					e.getChannel().sendMessage("Please add a valid stat type: `Wins`, `Shots`, `Goals`, `Assists`, `Saves`, `MVPs`").queue();
+					return;
 				case "ranks":
 					if (args.length > 1) {
 						try {
@@ -157,18 +208,47 @@ public class RLCommand implements Command {
 					}
 					return;
 				case "player":
-					if (args.length > 2) {
+					if (args.length >= 2) {
 						Platform pl = Platform.fromName(args[1].toUpperCase());
 						if (pl != null) {
 							if (pl == Platform.PS4 || pl == Platform.XBOX) {
+								if (args.length >= 4) {
+									try {
+										int season = Integer.valueOf(args[3]);
+										if (season > 0)
+											playerSeason.put(e.getMessageIdLong(), season);
+										else {
+											e.getChannel().sendMessage("Please use a valid season number!").queue();
+											return;
+										}
+									} catch (NumberFormatException ex) {
+										e.getChannel().sendMessage("Please use a valid season number!").queue();
+										return;
+									}
+								}
 								CompletableFuture<APIReturn<Long, Player>> search = stats.getPlayer(args[2], pl, e.getMessageIdLong());
 								search.thenAccept(this::notifyPlayer);
 								returnQueue.put(e.getMessageIdLong(), e.getChannel());
 								search.exceptionally(ex -> {e.getChannel().sendMessage("Please add a valid player name or id to get stats for!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
-							} else {
+								return;
+							} else if (pl == Platform.STEAM) {
 								try {
 									Long.valueOf(args[2]);
 									if (args[2].startsWith("7656119")) {
+										if (args.length >= 4) {
+											try {
+												int season = Integer.valueOf(args[3]);
+												if (season > 0)
+													playerSeason.put(e.getMessageIdLong(), season);
+												else {
+													e.getChannel().sendMessage("Please use a valid season number!").queue();
+													return;
+												}
+											} catch (NumberFormatException ex) {
+												e.getChannel().sendMessage("Please use a valid season number!").queue();
+												return;
+											}
+										}
 										CompletableFuture<APIReturn<Long, Player>> search = stats.getPlayer(args[2], pl, e.getMessageIdLong());
 										search.thenAccept(this::notifyPlayer);
 										returnQueue.put(e.getMessageIdLong(), e.getChannel());
@@ -177,6 +257,20 @@ public class RLCommand implements Command {
 									}
 								} catch (NullPointerException | NumberFormatException ex) {}
 								if (args[2].length() >= 3) {
+									if (args.length >= 4) {
+										try {
+											int season = Integer.valueOf(args[3]);
+											if (season > 0)
+												playerSeason.put(e.getMessageIdLong(), season);
+											else {
+												e.getChannel().sendMessage("Please use a valid season number!").queue();
+												return;
+											}
+										} catch (NumberFormatException ex) {
+											e.getChannel().sendMessage("Please use a valid season number!").queue();
+											return;
+										}
+									}
 									Long id = SteamAPI.getSteamID(args[2]);
 									if (id != 0) {
 										CompletableFuture<APIReturn<Long, Player>> search = stats.getPlayer(String.valueOf(id), pl, e.getMessageIdLong());
@@ -187,26 +281,43 @@ public class RLCommand implements Command {
 									}
 								}
 								e.getChannel().sendMessage("Please add a valid player name or id to get stats for!").queue();
+								return;
+							} else {
+								e.getChannel().sendMessage("Please add a player name or platform and player name with ranked season number to get stats for!").queue();
+								return;
 							}
 						} else {
-							e.getChannel().sendMessage("Please use a valid platform name!").queue();
+							if (args.length >= 3) {
+								try {
+									int season = Integer.valueOf(args[2]);
+									if (season > 0)
+										playerSeason.put(e.getMessageIdLong(), season);
+									else {
+										e.getChannel().sendMessage("Please use a valid season number!").queue();
+										return;
+									}
+								} catch (NumberFormatException ex) {
+									e.getChannel().sendMessage("Please use a valid season number!").queue();
+									return;
+								}
+							}
+							CompletableFuture<APIReturn<Long, SearchResultPage>> search = stats.searchPlayers(args[1], e.getMessageIdLong());
+							search.thenAccept(this::notifySearch);
+							returnQueue.put(e.getMessageIdLong(), e.getChannel());
+							search.exceptionally(ex -> {e.getChannel().sendMessage("Please add a valid player name or id to get stats for!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+							return;
 						}
-					} else if (args.length == 2) {
-						CompletableFuture<APIReturn<Long, SearchResultPage>> search = stats.searchPlayers(args[1], e.getMessageIdLong());
-						search.thenAccept(this::notifySearch);
-						returnQueue.put(e.getMessageIdLong(), e.getChannel());
-						search.exceptionally(ex -> {e.getChannel().sendMessage("Please add a valid player name or id to get stats for!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
 					} else {
-						e.getChannel().sendMessage("Please add a player name or platform and player name to get stats for!").queue();
+						e.getChannel().sendMessage("Please add a player name or platform and player name with ranked season number to get stats for!").queue();
+						return;
 					}
-					return;
 				}
 			}
 		}
 		if (e.getAuthor().getIdLong() == Config.getOwner()) {
-			e.getChannel().sendMessage("Valid subcommands: `token`, `ratelimit`, `platforms`, `seasons`, `ranks`, `playlists`, `player`").queue();
+			e.getChannel().sendMessage("Valid subcommands: `token`, `ratelimit`, `platforms`, `seasons`, `ranks`, `playlists`, `player`, `leaderboard`").queue();
 		} else {
-			e.getChannel().sendMessage("Valid subcommands: `platforms`, `seasons`, `ranks`, `playlists`, `player`").queue();
+			e.getChannel().sendMessage("Valid subcommands: `platforms`, `seasons`, `ranks`, `playlists`, `player`, `leaderboard`").queue();
 		}
 		return;
 	}
@@ -216,11 +327,10 @@ public class RLCommand implements Command {
 		String ret = "Available Platforms: ";
 		boolean first = true;
 		for (PlatformInfo pi : data.getValue()) {
-			if (first) {
+			if (first)
 				first = false;
-			} else {
+			else
 				ret += ", ";
-			}
 			ret += "`" + pi.getName() + "`";
 		}
 		channel.sendMessage(ret).queue();
@@ -234,17 +344,18 @@ public class RLCommand implements Command {
 		String ret = "";
 		boolean first = true;
 		for (Season s : data.getValue()) {
-			if (first) {
+			if (first)
 				first = false;
-			} else {
+			else
 				ret += "\n";
-			}
 			if (s.getEndTime() == -1) {
 				ret += "`" + s.getId() + "`: Started: `" + formatDate(s.getStartTime()) + "` Ended: `No`";
 			} else {
 				ret += "`" + s.getId() + "`: Started: `" + formatDate(s.getStartTime()) + "` Ended: `" + formatDate(s.getEndTime()) + "`";
 			}
 		}
+		season = data.getValue().size();
+		seasonUpdate = System.currentTimeMillis();
 		embed.addField("Seasons:", ret, false);
 		channel.sendMessage(embed.build()).queue();
 	}
@@ -256,14 +367,17 @@ public class RLCommand implements Command {
 		embed.setFooter("https://rocketleaguestats.com/", null);
 		String ret = "";
 		boolean first = true;
+		HashMap<Integer, String> tierMap = new HashMap<Integer, String>();
 		for (Tier t : data.getValue()) {
-			if (first) {
+			tierMap.put(t.getId(), t.getName());
+			if (first)
 				first = false;
-			} else {
+			else
 				ret += "\n";
-			}
 			ret += "`" + t.getId() + "`: `" + t.getName() + "`";
 		}
+		tiers = tierMap;
+		tiersUpdate = System.currentTimeMillis();
 		embed.addField("Ranks:", ret, false);
 		channel.sendMessage(embed.build()).queue();
 	}
@@ -277,13 +391,19 @@ public class RLCommand implements Command {
 		boolean first = true;
 		APIReturn<Integer, List<Tier>> value = data.getValue();
 		int season = value.getID();
+		HashMap<Integer, String> tierMap = new HashMap<Integer, String>();
 		for (Tier t : value.getValue()) {
-			if (first) {
+			if (season == RLCommand.season)
+				tierMap.put(t.getId(), t.getName());
+			if (first)
 				first = false;
-			} else {
+			else
 				ret += "\n";
-			}
 			ret += "`" + t.getId() + "`: `" + t.getName() + "`";
+		}
+		if (season == RLCommand.season) {
+			tiers = tierMap;
+			tiersUpdate = System.currentTimeMillis();
 		}
 		embed.addField("Season " + season + " Ranks:", ret, false);
 		channel.sendMessage(embed.build()).queue();
@@ -291,51 +411,74 @@ public class RLCommand implements Command {
 
 	void notifyPlaylists(APIReturn<Long, List<Playlist>> data) {
 		MessageChannel channel = returnQueue.remove(data.getID());
-		EmbedBuilder embed = new EmbedBuilder();
-		embed.setColor(new Color(6, 128, 211));
-		embed.setFooter("https://rocketleaguestats.com/", null);
-		HashMap<Integer, Integer> players = new HashMap<Integer, Integer>();
-		for (Playlist p : data.getValue()) {
-			int i = 0;
-			if (players.containsKey(p.getId())) {
-				i = players.get(p.getId());
-			}
-			i += p.getPlayers();
-			players.put(p.getId(), i);
-		}
-		embed.setTitle("Global Playlists:");
-		String ranked = "";
-		ranked += "Ranked Standard (3v3): `" + players.get(Playlist.RANKED_STANDARD) + " Playing`\n";
-		ranked += "Ranked Doubles (2v2): `" + players.get(Playlist.RANKED_DOUBLES) + " Playing`\n";
-		ranked += "Ranked Solo Duel (1v1): `" + players.get(Playlist.RANKED_DUEL) + " Playing`\n";
-		ranked += "Ranked Solo Standard (3v3): `" + players.get(Playlist.RANKED_SOLO_STANDARD) + " Playing`\n";
-		embed.addField("Ranked:", ranked, true);
-		String soccar = "";
-		soccar += "Standard (3v3): `" + players.get(Playlist.STANDARD) + " Playing`\n";
-		soccar += "Doubles (2v2): `" + players.get(Playlist.DOUBLES) + " Playing`\n";
-		soccar += "Duel (1v1): `" + players.get(Playlist.DUEL) + " Playing`\n";
-		soccar += "Chaos (4v4): `" + players.get(Playlist.CHAOS) + " Playing`\n";
-		embed.addField("Soccar:", soccar, true);
-		String sports = "";
-		sports += "Drop Shot (3v3): `" + players.get(Playlist.DROPSHOT) + " Playing`\n";
-		sports += "Rumble (3v3): `" + players.get(Playlist.RUMBLE) + " Playing`\n";
-		sports += "Snow Day (3v3): `" + players.get(Playlist.SNOW_DAY) + " Playing`\n";
-		sports += "Hoops (2v2): `" + players.get(Playlist.HOOPS) + " Playing`\n";
-		sports += "Rocket Labs (3v3): `" + players.get(Playlist.ROCKET_LABS) + " Playing`\n";
-		sports += "Mutator Mashup (3v3): `" + players.get(Playlist.MUTATOR_MASHUP) + " Playing`\n";
-		embed.addField("Sports:", sports, true);
-		channel.sendMessage(embed.build()).queue();
+		List<Playlist> playlists = data.getValue();
+		sendPlaylists(channel, playlists, null);
 	}
 
 	void notifyPlaylistsPlatform(APIReturn<Long, List<Playlist>> data) {
 		MessageChannel channel = returnQueue.remove(data.getID());
+		List<Playlist> playlists = data.getValue();
+		Platform pl = playlistRequest.remove(data.getID());
+		sendPlaylists(channel, playlists, pl);
+	}
+
+	void notifyLeaderboard(APIReturn<Long, List<Player>> data) {
+		MessageChannel channel = returnQueue.remove(data.getID());
+		EmbedBuilder embed = new EmbedBuilder();
+		embed.setColor(new Color(6, 128, 211));
+		embed.setFooter("https://rocketleaguestats.com/", null);
+		String ret = "";
+		List<Player> players = data.getValue();
+		Stat s = leaderboardStat.remove(data.getID());
+		String statType = "";
+		switch (s) {
+		case WINS:
+			statType = "Wins";
+			break;
+		case SHOTS:
+			statType = "Shots";
+			break;
+		case GOALS:
+			statType = "Goals";
+			break;
+		case ASSISTS:
+			statType = "Assists";
+			break;
+		case SAVES:
+			statType = "Saves";
+			break;
+		case MVP:
+			statType = "MVPs";
+			break;
+		default:
+			statType = "Wins";
+			break;
+		}
+		for (int i = 0; i < 10; i++) {
+			if (i > 0)
+				ret += "\n";
+			Player p = players.get(i);
+			ret += "**" + (i + 1) + "**: " + p.getDisplayName() + " on " + p.getPlatform().getName() + ": " + statType + ": " + p.getStats().getStat(s);
+		}
+		embed.addField("Top " + statType, ret, false);
+		embed.setDescription("[Leaderboard](https://rocketleaguestats.com/leaderboards)");
+		channel.sendMessage(embed.build()).queue();
+	}
+	
+	private static void sendPlaylists(MessageChannel channel, List<Playlist> data, Platform pl) {
 		EmbedBuilder embed = new EmbedBuilder();
 		embed.setColor(new Color(6, 128, 211));
 		embed.setFooter("https://rocketleaguestats.com/", null);
 		HashMap<Integer, Integer> players = new HashMap<Integer, Integer>();
-		Platform pl = playlistRequest.remove(data.getID());
-		for (Playlist p : data.getValue()) {
-			if (p.getPlatform() == pl) {
+		for (Playlist p : data) {
+			if (pl == null) {
+				int i = 0;
+				if (players.containsKey(p.getId())) {
+					i = players.get(p.getId());
+				}
+				i += p.getPlayers();
+				players.put(p.getId(), i);
+			} else if (p.getPlatform() == pl) {
 				int i = 0;
 				if (players.containsKey(p.getId())) {
 					i = players.get(p.getId());
@@ -344,7 +487,10 @@ public class RLCommand implements Command {
 				players.put(p.getId(), i);
 			}
 		}
-		embed.setTitle(pl.getName() + " Playlists:");
+		if (pl == null)
+			embed.setTitle("Global Playlists:");
+		else
+			embed.setTitle(pl.getName() + " Playlists:");
 		String ranked = "";
 		ranked += "Ranked Standard (3v3): `" + players.get(Playlist.RANKED_STANDARD) + " Playing`\n";
 		ranked += "Ranked Doubles (2v2): `" + players.get(Playlist.RANKED_DOUBLES) + " Playing`\n";
@@ -370,9 +516,15 @@ public class RLCommand implements Command {
 
 	void notifyPlayer(APIReturn<Long, Player> data) {
 		MessageChannel channel = returnQueue.remove(data.getID());
+		int season = -1;
+		if (playerSeason.containsKey(data.getID()))
+			season = playerSeason.remove(data.getID());
 		Player p = data.getValue();
 		if (p != null) {
-			sendPlayer(channel, p);
+			if (season == -1)
+				sendPlayer(channel, p);
+			else
+				sendPlayer(channel, p, season);
 			return;
 		}
 		channel.sendMessage("Please add a valid player name or id to get stats for!").queue();
@@ -382,13 +534,57 @@ public class RLCommand implements Command {
 		MessageChannel channel = returnQueue.remove(data.getID());
 		SearchResultPage result = data.getValue();
 		List<Player> players = result.getResults();
+		int season = -1;
+		if (playerSeason.containsKey(data.getID()))
+			season = playerSeason.remove(data.getID());
 		Player p = null;
 		if (result.getTotalResults() > 0) {
 			p = players.get(0);
-			sendPlayer(channel, p);
+			if (season == -1)
+				sendPlayer(channel, p);
+			else
+				sendPlayer(channel, p, season);
 			return;
 		}
 		channel.sendMessage("Please add a valid player name or id to get stats for!").queue();
+	}
+	
+	private static void sendPlayer(MessageChannel channel, Player p, int seasonID) {
+		EmbedBuilder embed = new EmbedBuilder();
+		embed.setColor(new Color(6, 128, 211));
+		embed.setFooter("https://rocketleaguestats.com/", null);
+		String url = p.getAvatarUrl();
+		if (url == null)
+			url = "https://cdn.discordapp.com/attachments/376557695420989441/435138854693896192/rls_partner_vertical_small.png";
+		embed.setThumbnail(url);
+		embed.setDescription("**[" + p.getDisplayName() + "'s Stats on " + p.getPlatform().getName() + ":](" + p.getProfileUrl() + ")**");
+		String season = "";
+		HashMap<Integer, String> tierMap = new HashMap<Integer, String>();
+		if (System.currentTimeMillis() - tiersUpdate >= 86400000) {
+			CompletableFuture<APIReturn<Long, List<Tier>>> tiers = RLCommand.stats.getTiers(0L);
+			try {
+				APIReturn<Long, List<Tier>> ret = tiers.get();
+				for (Tier t : ret.getValue()) {
+					tierMap.put(t.getId(), t.getName());
+				}
+				RLCommand.tiers = tierMap;
+				tiersUpdate = System.currentTimeMillis();
+			} catch (InterruptedException | ExecutionException e) {
+				e.printStackTrace();
+			}
+		}
+		SeasonInfo info = p.getSeasonInfo(seasonID);
+		if (info != null) {
+			season += getRankedInfo(info.getAllPlaylistInfo());
+		} else {
+			season += "Did Not Participate";
+		}
+		embed.addField("Season " + seasonID + ":", season, true);
+		String time = "";
+		time += "**First Data Fetched:** " + formatDate(p.getCreated()) + "\n";
+		time += "**Updated:** " + formatDateTime(p.getUpdated()) + "\n";
+		embed.addField("Data:", time, true);
+		channel.sendMessage(embed.build()).queue();
 	}
 	
 	private static void sendPlayer(MessageChannel channel, Player p) {
@@ -429,11 +625,75 @@ public class RLCommand implements Command {
 		style += "**Saves:** " + new BigDecimal(String.valueOf(save)).setScale(2, RoundingMode.HALF_EVEN) + "%";
 		embed.addField("Play Style:", style, true);
 		String time = "";
-		time += "**Joined:** " + formatDate(p.getCreated()) + "\n";
+		time += "**First Data Fetched:** " + formatDate(p.getCreated()) + "\n";
 		time += "**Updated:** " + formatDateTime(p.getUpdated()) + "\n";
-		time += "**Next Update:** " + formatDateTime(p.getNextUpdate()) + "\n";
 		embed.addField("Data:", time, true);
+		String season = "";
+		if (System.currentTimeMillis() - seasonUpdate >= 86400000) {
+			CompletableFuture<APIReturn<Long, List<Season>>> seasons = RLCommand.stats.getSeasons(0L);
+			try {
+				APIReturn<Long, List<Season>> ret = seasons.get();
+				RLCommand.season = ret.getValue().size();
+				seasonUpdate = System.currentTimeMillis();
+			} catch (InterruptedException | ExecutionException e) {
+				e.printStackTrace();
+			}
+		}
+		HashMap<Integer, String> tierMap = new HashMap<Integer, String>();
+		if (System.currentTimeMillis() - tiersUpdate >= 86400000) {
+			CompletableFuture<APIReturn<Long, List<Tier>>> tiers = RLCommand.stats.getTiers(0L);
+			try {
+				APIReturn<Long, List<Tier>> ret = tiers.get();
+				for (Tier t : ret.getValue()) {
+					tierMap.put(t.getId(), t.getName());
+				}
+				RLCommand.tiers = tierMap;
+				tiersUpdate = System.currentTimeMillis();
+			} catch (InterruptedException | ExecutionException e) {
+				e.printStackTrace();
+			}
+		}
+		SeasonInfo info = p.getSeasonInfo(RLCommand.season);
+		if (info != null) {
+			season += getRankedInfo(info.getAllPlaylistInfo());
+		} else {
+			season += "Did Not Participate";
+		}
+		embed.addField("Season " + RLCommand.season + ":", season, true);
 		channel.sendMessage(embed.build()).queue();
+	}
+	
+	private static String getRankedInfo(Map<Integer, PlaylistInfo> playlists) {
+		String season = "";
+		PlaylistInfo standard = playlists.get(Playlist.RANKED_STANDARD);
+		PlaylistInfo doubles = playlists.get(Playlist.RANKED_DOUBLES);
+		PlaylistInfo duel = playlists.get(Playlist.RANKED_DUEL);
+		PlaylistInfo soloStandard = playlists.get(Playlist.RANKED_SOLO_STANDARD);
+		if (standard != null) {
+			if (standard.getMatchesPlayed() > 0) {
+				season += "**Ranked Standard:** " + tiers.get(standard.getTier()) + " Division " + standard.getDivision() + "\n";
+				season += "− Ranking Points: " + standard.getRankPoints() + " Matches Played: " + standard.getMatchesPlayed() + "\n";
+			}
+		}
+		if (doubles != null) {
+			if (doubles.getMatchesPlayed() > 0) {
+				season += "**Ranked Doubles:** " + tiers.get(doubles.getTier()) + " Division " + standard.getDivision() + "\n";
+				season += "− Ranking Points: " + standard.getRankPoints() + " Matches Played: " + standard.getMatchesPlayed() + "\n";
+			}
+		}
+		if (duel != null) {
+			if (duel.getMatchesPlayed() > 0) {
+				season += "**Ranked Duel:** " + tiers.get(duel.getTier()) + " Division " + duel.getDivision() + "\n";
+				season += "− Ranking Points: " + duel.getRankPoints() + " Matches Played: " + duel.getMatchesPlayed() + "\n";
+			}
+		}
+		if (soloStandard != null) {
+			if (soloStandard.getMatchesPlayed() > 0) {
+				season += "**Ranked Solo Standard:** " + tiers.get(soloStandard.getTier()) + " Division " + soloStandard.getDivision() + "\n";
+				season += "− Ranking Points: " + soloStandard.getRankPoints() + " Matches Played: " + soloStandard.getMatchesPlayed() + "\n";
+			}
+		}
+		return season;
 	}
 
 	public String getDesc() {
