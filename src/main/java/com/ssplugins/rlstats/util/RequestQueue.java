@@ -77,9 +77,8 @@ public class RequestQueue {
 				waitForRequests(Long.parseLong(headers.getFirst("X-Rate-Limit-Reset-Remaining")));
 				return response.getBody();
 			} catch (UnirestException | IllegalStateException e) {
-				api.exception(e);
+				throw new CompletionException(e);
 			}
-			return null;
 		});
 	}
 	

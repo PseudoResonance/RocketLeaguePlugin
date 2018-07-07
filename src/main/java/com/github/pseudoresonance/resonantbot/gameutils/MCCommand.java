@@ -67,7 +67,7 @@ public class MCCommand implements Command {
 		channel.sendMessage(build.build()).queue();
 	}
 
-	public String getDesc() {
+	public String getDesc(long guildID) {
 		return "Displays Minecraft character info";
 	}
 

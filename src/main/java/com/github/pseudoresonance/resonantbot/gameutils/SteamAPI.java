@@ -58,6 +58,12 @@ public class SteamAPI {
 			try {
 				URL url = new URL("https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key=" + token + "&vanityurl=" + name);
 				HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
+				connection.setRequestMethod("GET");
+				connection.connect();
+				int code = connection.getResponseCode();
+				if (code == 403) {
+					throw new IllegalStateException("Please add a Steam API token!");
+				}
 				try (InputStream in = connection.getInputStream()) {
 					try (JsonReader jr = Json.createReader(in)) {
 						JsonObject jo = jr.readObject();
@@ -70,8 +76,10 @@ public class SteamAPI {
 					}
 				}
 			} catch (Exception ex) {
+				if (ex instanceof IllegalStateException && ex.getMessage().equals("Please add a Steam API token!"))
+					throw new IllegalStateException("Error with Steam API! Please try again!", ex);
 				ex.printStackTrace();
-				return 0L;
+				throw new IllegalStateException("Error with Steam API! Please try again!");
 			}
 		} else {
 			id = usernames.get(name).getId();

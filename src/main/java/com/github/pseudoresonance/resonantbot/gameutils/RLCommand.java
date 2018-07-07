@@ -74,8 +74,13 @@ public class RLCommand implements Command {
 				if (e.getAuthor().getIdLong() == Config.getOwner()) {
 					if (args.length > 1) {
 						Config.put("rocketleaguetoken", args[1]);
+						Config.save();
 						e.getChannel().sendMessage("Saved Rocket League API token!").queue();
 						e.getMessage().delete().queue();
+						if (stats != null)
+							stats.setAuthKey(args[1]);
+						else
+							stats = RLStats.getAPI(args[1]);
 						return;
 					} else {
 						e.getChannel().sendMessage("Please add a Rocket League API token!").queue();
@@ -91,7 +96,11 @@ public class RLCommand implements Command {
 						try {
 							int rateLimit = Integer.valueOf(args[1]);
 							Config.put("rocketleaguelimit", rateLimit);
-							stats.setRequestsPerSecond(rateLimit);
+							Config.save();
+							if (stats != null)
+								stats.setRequestsPerSecond(rateLimit);
+							else
+								e.getChannel().sendMessage("Please add a Rocket League API token!").queue();
 							e.getChannel().sendMessage("Saved rate limit!").queue();
 							return;
 						} catch (NullPointerException | NumberFormatException ex) {
@@ -125,13 +134,13 @@ public class RLCommand implements Command {
 					CompletableFuture<APIReturn<Long, List<PlatformInfo>>> platforms = stats.getPlatforms(e.getMessageIdLong());
 					platforms.thenAccept(this::notifyPlatforms);
 					returnQueue.put(e.getMessageIdLong(), e.getChannel());
-					platforms.exceptionally(ex -> {e.getChannel().sendMessage("Could not get platforms!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+					platforms.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} e.getChannel().sendMessage("Could not get platforms! Please try again!").queue(); returnQueue.remove(e.getMessageIdLong()); ex.printStackTrace(); return null;});
 					return;
 				case "seasons":
 					CompletableFuture<APIReturn<Long, List<Season>>> seasons = stats.getSeasons(e.getMessageIdLong());
 					seasons.thenAccept(this::notifySeasons);
 					returnQueue.put(e.getMessageIdLong(), e.getChannel());
-					seasons.exceptionally(ex -> {e.getChannel().sendMessage("Could not get seasons!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+					seasons.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} e.getChannel().sendMessage("Could not get seasons! Please try again!").queue(); returnQueue.remove(e.getMessageIdLong()); ex.printStackTrace(); return null;});
 					return;
 				case "leaderboard":
 					if (args.length > 1) {
@@ -164,7 +173,7 @@ public class RLCommand implements Command {
 							leaderboard.thenAccept(this::notifyLeaderboard);
 							returnQueue.put(e.getMessageIdLong(), e.getChannel());
 							leaderboardStat.put(e.getMessageIdLong(), stat);
-							leaderboard.exceptionally(ex -> {e.getChannel().sendMessage("Could not get leaderboard!").queue(); returnQueue.remove(e.getMessageIdLong()); leaderboardStat.remove(e.getMessageIdLong()); return null;});
+							leaderboard.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} e.getChannel().sendMessage("Could not get leaderboard! Please try again!").queue(); returnQueue.remove(e.getMessageIdLong()); leaderboardStat.remove(e.getMessageIdLong()); ex.printStackTrace(); return null;});
 							return;
 						}
 					}
@@ -177,7 +186,7 @@ public class RLCommand implements Command {
 							CompletableFuture<APIReturn<Long, APIReturn<Integer, List<Tier>>>> tiers = stats.getTiers(season, e.getMessageIdLong());
 							tiers.thenAccept(this::notifyTiersSeason);
 							returnQueue.put(e.getMessageIdLong(), e.getChannel());
-							tiers.exceptionally(ex -> {e.getChannel().sendMessage("Could not get ranks!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+							tiers.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} e.getChannel().sendMessage("Could not get ranks! Please try again!").queue(); returnQueue.remove(e.getMessageIdLong()); ex.printStackTrace(); return null;});
 						} catch (NullPointerException | NumberFormatException ex) {
 							e.getChannel().sendMessage("Please add a valid season number!").queue();
 						}
@@ -185,7 +194,7 @@ public class RLCommand implements Command {
 						CompletableFuture<APIReturn<Long, List<Tier>>> tiers = stats.getTiers(e.getMessageIdLong());
 						tiers.thenAccept(this::notifyTiers);
 						returnQueue.put(e.getMessageIdLong(), e.getChannel());
-						tiers.exceptionally(ex -> {e.getChannel().sendMessage("Could not get ranks!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+						tiers.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} e.getChannel().sendMessage("Could not get ranks! Please try again!").queue(); returnQueue.remove(e.getMessageIdLong()); ex.printStackTrace(); return null;});
 					}
 					return;
 				case "playlists":
@@ -196,7 +205,7 @@ public class RLCommand implements Command {
 							playlists.thenAccept(this::notifyPlaylistsPlatform);
 							returnQueue.put(e.getMessageIdLong(), e.getChannel());
 							playlistRequest.put(e.getMessageIdLong(), pl);
-							playlists.exceptionally(ex -> {e.getChannel().sendMessage("Could not get playlists!").queue(); returnQueue.remove(e.getMessageIdLong()); playlistRequest.remove(e.getMessageIdLong()); return null;});
+							playlists.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} e.getChannel().sendMessage("Could not get playlists! Please try again!").queue(); returnQueue.remove(e.getMessageIdLong()); playlistRequest.remove(e.getMessageIdLong()); ex.printStackTrace(); return null;});
 						} else {
 							e.getChannel().sendMessage("Please add a valid platform name!").queue();
 						}
@@ -204,7 +213,7 @@ public class RLCommand implements Command {
 						CompletableFuture<APIReturn<Long, List<Playlist>>> playlists = stats.getPlaylistInfo(e.getMessageIdLong());
 						playlists.thenAccept(this::notifyPlaylists);
 						returnQueue.put(e.getMessageIdLong(), e.getChannel());
-						playlists.exceptionally(ex -> {e.getChannel().sendMessage("Could not get playlists!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+						playlists.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} e.getChannel().sendMessage("Could not get playlists! Please try again!").queue(); returnQueue.remove(e.getMessageIdLong()); ex.printStackTrace(); return null;});
 					}
 					return;
 				case "player":
@@ -229,7 +238,7 @@ public class RLCommand implements Command {
 								CompletableFuture<APIReturn<Long, Player>> search = stats.getPlayer(args[2], pl, e.getMessageIdLong());
 								search.thenAccept(this::notifyPlayer);
 								returnQueue.put(e.getMessageIdLong(), e.getChannel());
-								search.exceptionally(ex -> {e.getChannel().sendMessage("Please add a valid player name or id to get stats for!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+								search.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) {if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} else {ex.printStackTrace(); e.getChannel().sendMessage("An error has occurred! Please try again!").queue();}} else if (ex.getCause() instanceof NullPointerException) e.getChannel().sendMessage("Player not found!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
 								return;
 							} else if (pl == Platform.STEAM) {
 								try {
@@ -252,7 +261,7 @@ public class RLCommand implements Command {
 										CompletableFuture<APIReturn<Long, Player>> search = stats.getPlayer(args[2], pl, e.getMessageIdLong());
 										search.thenAccept(this::notifyPlayer);
 										returnQueue.put(e.getMessageIdLong(), e.getChannel());
-										search.exceptionally(ex -> {e.getChannel().sendMessage("Please add a valid player name or id to get stats for!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+										search.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) {if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} else {ex.printStackTrace(); e.getChannel().sendMessage("An error has occurred! Please try again!").queue();}} else if (ex.getCause() instanceof NullPointerException) e.getChannel().sendMessage("Player not found!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
 										return;
 									}
 								} catch (NullPointerException | NumberFormatException ex) {}
@@ -271,12 +280,24 @@ public class RLCommand implements Command {
 											return;
 										}
 									}
-									Long id = SteamAPI.getSteamID(args[2]);
+									Long id = 0L;
+									try {
+										id = SteamAPI.getSteamID(args[2]);
+									} catch (IllegalStateException ex) {
+										if (ex.getCause() instanceof IllegalStateException)
+											e.getChannel().sendMessage(ex.getCause().getMessage()).queue();
+										else
+											e.getChannel().sendMessage(ex.getMessage()).queue();
+										return;
+									}
 									if (id != 0) {
 										CompletableFuture<APIReturn<Long, Player>> search = stats.getPlayer(String.valueOf(id), pl, e.getMessageIdLong());
 										search.thenAccept(this::notifyPlayer);
 										returnQueue.put(e.getMessageIdLong(), e.getChannel());
-										search.exceptionally(ex -> {e.getChannel().sendMessage("Please add a valid player name or id to get stats for!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+										search.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) {if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} else {ex.printStackTrace(); e.getChannel().sendMessage("An error has occurred! Please try again!").queue();}} else if (ex.getCause() instanceof NullPointerException) e.getChannel().sendMessage("Player not found!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+										return;
+									} else {
+										e.getChannel().sendMessage("Player not found!").queue();
 										return;
 									}
 								}
@@ -304,7 +325,7 @@ public class RLCommand implements Command {
 							CompletableFuture<APIReturn<Long, SearchResultPage>> search = stats.searchPlayers(args[1], e.getMessageIdLong());
 							search.thenAccept(this::notifySearch);
 							returnQueue.put(e.getMessageIdLong(), e.getChannel());
-							search.exceptionally(ex -> {e.getChannel().sendMessage("Please add a valid player name or id to get stats for!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
+							search.exceptionally(ex -> {if (ex.getCause() instanceof IllegalStateException) {if (ex.getCause().getMessage().equals("Unauthorized. API key is wrong. (E:401)")) {e.getChannel().sendMessage("Please add a valid Rocket League API token!").queue(); return null;} else {ex.printStackTrace(); e.getChannel().sendMessage("An error has occurred! Please try again!").queue();}} else if (ex.getCause() instanceof NullPointerException) e.getChannel().sendMessage("Player not found!").queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
 							return;
 						}
 					} else {
@@ -696,7 +717,7 @@ public class RLCommand implements Command {
 		return season;
 	}
 
-	public String getDesc() {
+	public String getDesc(long guildID) {
 		return "Displays Rocket League stats";
 	}
 

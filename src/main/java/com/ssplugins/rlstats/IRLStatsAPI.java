@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
@@ -118,10 +119,11 @@ public class IRLStatsAPI implements RLStatsAPI {
 				platformsCache = list;
 				platformsTime = System.currentTimeMillis();
 				return new APIReturn<Long, List<PlatformInfo>>(messageID, list);
-			} catch (InterruptedException | ExecutionException | IllegalArgumentException e) {
-				exception(e);
+			} catch (ExecutionException e) {
+				throw new CompletionException(e.getCause());
+			} catch (InterruptedException | IllegalArgumentException e) {
+				throw new CompletionException(e);
 			}
-			return new APIReturn<Long, List<PlatformInfo>>(messageID, new ArrayList<>());
 		});
 	}
 	
@@ -160,13 +162,14 @@ public class IRLStatsAPI implements RLStatsAPI {
 		});
 	}
 	
-	private List<Tier> getTiers(Future<JsonNode> response) {
+	private List<Tier> getTiers(CompletableFuture<JsonNode> response) {
 		try {
 			return jsonNodeToObjectList(response.get(), Tier::new);
-		} catch (InterruptedException | ExecutionException | IllegalArgumentException e) {
-			exception(e);
+		} catch (ExecutionException e) {
+			throw new CompletionException(e.getCause());
+		} catch (InterruptedException | IllegalArgumentException e) {
+			throw new CompletionException(e);
 		}
-		return new ArrayList<>();
 	}
 	
 	@Override
@@ -184,10 +187,11 @@ public class IRLStatsAPI implements RLStatsAPI {
 				seasonsCache = list;
 				seasonsTime = System.currentTimeMillis();
 				return new APIReturn<Long, List<Season>>(messageID, list);
-			} catch (InterruptedException | ExecutionException | IllegalArgumentException e) {
-				exception(e);
+			} catch (ExecutionException e) {
+				throw new CompletionException(e.getCause());
+			} catch (InterruptedException | IllegalArgumentException e) {
+				throw new CompletionException(e);
 			}
-			return new APIReturn<Long, List<Season>>(messageID, new ArrayList<>());
 		});
 	}
 	
@@ -206,10 +210,11 @@ public class IRLStatsAPI implements RLStatsAPI {
 				playlistsCache = list;
 				playlistsTime = System.currentTimeMillis();
 				return new APIReturn<Long, List<Playlist>>(messageID, list);
-			} catch (InterruptedException | ExecutionException | IllegalArgumentException e) {
-				exception(e);
+			} catch (ExecutionException e) {
+				throw new CompletionException(e.getCause());
+			} catch (InterruptedException | IllegalArgumentException e) {
+				throw new CompletionException(e);
 			}
-			return new APIReturn<Long, List<Playlist>>(messageID, new ArrayList<>());
 		});
 	}
 	
@@ -230,10 +235,11 @@ public class IRLStatsAPI implements RLStatsAPI {
 				playerCache.put(platform + "|" + id, pl);
 				playerTime.put(platform + "|" + id, pl.getNextUpdate());
 				return new APIReturn<Long, Player>(messageID, pl);
-			} catch (InterruptedException | ExecutionException e) {
-				exception(e);
+			} catch (ExecutionException e) {
+				throw new CompletionException(e.getCause());
+			} catch (InterruptedException e) {
+				throw new CompletionException(e);
 			}
-			return null;
 		});
 	}
 	
@@ -252,10 +258,11 @@ public class IRLStatsAPI implements RLStatsAPI {
 			Future<JsonNode> response = queue.post(key, apiVersion, "/player/batch", null, array.toString());
 			try {
 				return new APIReturn<Long, List<Player>>(messageID, jsonNodeToObjectList(response.get(), Player::new));
-			} catch (InterruptedException | ExecutionException | IllegalArgumentException e) {
-				exception(e);
+			} catch (ExecutionException e) {
+				throw new CompletionException(e.getCause());
+			} catch (InterruptedException | IllegalArgumentException e) {
+				throw new CompletionException(e);
 			}
-			return new APIReturn<Long, List<Player>>(messageID, new ArrayList<>());
 		});
 	}
 	
@@ -281,10 +288,11 @@ public class IRLStatsAPI implements RLStatsAPI {
 				playerSearchCache.put(displayName.toLowerCase() + "|" + page, search);
 				playerSearchTime.put(displayName.toLowerCase() + "|" + page, System.currentTimeMillis());
 				return new APIReturn<Long, SearchResultPage>(messageID, search);
-			} catch (InterruptedException | ExecutionException e) {
-				exception(e);
+			} catch (ExecutionException e) {
+				throw new CompletionException(e.getCause());
+			} catch (InterruptedException | IllegalArgumentException e) {
+				throw new CompletionException(e);
 			}
-			return null;
 		});
 	}
 	
@@ -300,10 +308,11 @@ public class IRLStatsAPI implements RLStatsAPI {
 			Future<JsonNode> response = queue.get(key, apiVersion, "/leaderboard/ranked", Query.create("playlist_id", String.valueOf(playlistId)));
 			try {
 				return new APIReturn<Long, List<Player>>(messageID, jsonNodeToObjectList(response.get(), Player::new));
-			} catch (InterruptedException | ExecutionException | IllegalArgumentException e) {
-				exception(e);
+			} catch (ExecutionException e) {
+				throw new CompletionException(e.getCause());
+			} catch (InterruptedException | IllegalArgumentException e) {
+				throw new CompletionException(e);
 			}
-			return new APIReturn<Long, List<Player>>(messageID, new ArrayList<>());
 		});
 	}
 	
@@ -315,10 +324,11 @@ public class IRLStatsAPI implements RLStatsAPI {
 			CompletableFuture<JsonNode> response = queue.get(key, apiVersion, "/leaderboard/stat", Query.create("type", stat.getQueryName()));
 			try {
 				return new APIReturn<Long, List<Player>>(messageID, jsonNodeToObjectList(response.get(), Player::new));
-			} catch (InterruptedException | ExecutionException | IllegalArgumentException e) {
-				exception(e);
+			} catch (ExecutionException e) {
+				throw new CompletionException(e.getCause());
+			} catch (InterruptedException | IllegalArgumentException e) {
+				throw new CompletionException(e);
 			}
-			return new APIReturn<Long, List<Player>>(messageID, new ArrayList<>());
 		});
 	}
 }

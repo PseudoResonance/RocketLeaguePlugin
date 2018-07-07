@@ -18,6 +18,7 @@ public class SteamCommand implements Command {
 				if (e.getAuthor().getIdLong() == Config.getOwner()) {
 					if (args.length > 1) {
 						Config.put("steamtoken", args[1]);
+						Config.save();
 						e.getChannel().sendMessage("Saved Steam API token!").queue();
 						e.getMessage().delete().queue();
 						SteamAPI.updateToken(args[1]);
@@ -40,7 +41,7 @@ public class SteamCommand implements Command {
 	}
 
 	@Override
-	public String getDesc() {
+	public String getDesc(long guildID) {
 		return "Allows access to Steam API data";
 	}
 
