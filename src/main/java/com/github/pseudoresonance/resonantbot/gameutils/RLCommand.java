@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutionException;
 import javax.json.JsonNumber;
 
 import com.github.pseudoresonance.resonantbot.Config;
+import com.github.pseudoresonance.resonantbot.Language;
 import com.github.pseudoresonance.resonantbot.api.Command;
 import com.ssplugins.rlstats.APIReturn;
 import com.ssplugins.rlstats.RLStats;
@@ -479,7 +480,7 @@ public class RLCommand implements Command {
 			if (i > 0)
 				ret += "\n";
 			Player p = players.get(i);
-			ret += "**" + (i + 1) + "**: " + p.getDisplayName() + " on " + p.getPlatform().getName() + ": " + statType + ": " + p.getStats().getStat(s);
+			ret += "**" + (i + 1) + "**: `" + Language.escape(p.getDisplayName()) + "` on " + p.getPlatform().getName() + ": " + statType + ": " + p.getStats().getStat(s);
 		}
 		embed.addField("Top " + statType, ret, false);
 		embed.setDescription("[Leaderboard](https://rocketleaguestats.com/leaderboards)");
@@ -578,7 +579,7 @@ public class RLCommand implements Command {
 		if (url == null)
 			url = "https://cdn.discordapp.com/attachments/376557695420989441/435138854693896192/rls_partner_vertical_small.png";
 		embed.setThumbnail(url);
-		embed.setDescription("**[" + p.getDisplayName() + "'s Stats on " + p.getPlatform().getName() + ":](" + p.getProfileUrl() + ")**");
+		embed.setDescription("**[" + Language.escape(p.getDisplayName()) + "'s Stats on " + p.getPlatform().getName() + ":](" + p.getProfileUrl() + ")**");
 		String season = "";
 		HashMap<Integer, String> tierMap = new HashMap<Integer, String>();
 		if (System.currentTimeMillis() - tiersUpdate >= 86400000) {
@@ -616,7 +617,7 @@ public class RLCommand implements Command {
 		if (url == null)
 			url = "https://cdn.discordapp.com/attachments/376557695420989441/435138854693896192/rls_partner_vertical_small.png";
 		embed.setThumbnail(url);
-		embed.setDescription("**[" + p.getDisplayName() + "'s Stats on " + p.getPlatform().getName() + ":](" + p.getProfileUrl() + ")**");
+		embed.setDescription("**[" + Language.escape(p.getDisplayName()) + "'s Stats on " + p.getPlatform().getName() + ":](" + p.getProfileUrl() + ")**");
 		Stats s = p.getStats();
 		String stats = "";
 		int wins = s.getStat(Stat.WINS);

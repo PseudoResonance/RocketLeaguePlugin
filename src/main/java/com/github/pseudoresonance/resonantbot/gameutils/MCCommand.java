@@ -11,6 +11,7 @@ import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.net.ssl.HttpsURLConnection;
 
+import com.github.pseudoresonance.resonantbot.Language;
 import com.github.pseudoresonance.resonantbot.api.Command;
 
 import net.dv8tion.jda.core.EmbedBuilder;
@@ -60,7 +61,7 @@ public class MCCommand implements Command {
 
 	private static void sendMessage(MessageChannel channel, String uuid, String name) {
 		EmbedBuilder build = new EmbedBuilder();
-		build.setTitle("Minecraft Account Details: " + name);
+		build.setTitle("Minecraft Account Details: " + Language.escape(name));
 		build.setColor(new Color(0, 255, 0));
 		build.setThumbnail("https://crafatar.com/renders/head/" + uuid + "?overlay");
 		build.appendDescription("[UUID: " + uuid + "](https://crafatar.com/renders/body/" + uuid + "?overlay)");
