@@ -714,6 +714,8 @@ public class RLCommand implements Command {
 				season += "− Ranking Points: " + soloStandard.getRankPoints() + " Matches Played: " + soloStandard.getMatchesPlayed() + "\n";
 			}
 		}
+		if (season.equals(""))
+			season = "Did Not Participate";
 		return season;
 	}
 
