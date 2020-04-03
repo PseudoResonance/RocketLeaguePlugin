@@ -1,12 +1,6 @@
 #en-GB lang file
 
-gameutils:
-  invalidMinecraftAccount: "Please specify a valid Minecraft account!"
-  minecraftAccountDetails: "Minecraft Account Details: {$1$}"
-  previousNames: "**Previous Names**"
-  previousNameEntry: "**{$1$}** until {$2$}"
-  uuid: "UUID: {$1$}"
-  mcCommandDescription: "Displays Minecraft character info"
+rocketleague:
   noSteamToken: "The bot owner has not added a Steam API token!"
   savedSteamToken: "Saved Steam API token!"
   addSteamToken: "Please add a Steam API token!"

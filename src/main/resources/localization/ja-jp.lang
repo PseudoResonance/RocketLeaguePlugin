@@ -1,12 +1,6 @@
 #ja-JP lang file
 
-gameutils:
-  invalidMinecraftAccount: "有効なマインクラフトのアカウントを指定して下さい！"
-  minecraftAccountDetails: "マインクラフトのキャラクター情報： {$1$}"
-  previousNames: "**以前の名前**"
-  previousNameEntry: "{$2$}　まで　**{$1$}**"
-  uuid: "UUID： {$1$}"
-  mcCommandDescription: "マインクラフトのキャラクター情報を表示する"
+rocketleague:
   noSteamToken: "ボットの所有者がSteam APIのトークンを入力してません！"
   savedSteamToken: "Steam APIのトークンを設定しました！"
   addSteamToken: "Steam APIのトークンを入力してください！"
