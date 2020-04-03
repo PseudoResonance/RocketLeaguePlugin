@@ -1,4 +1,4 @@
-package com.github.pseudoresonance.resonantbot.gameutils;
+package com.github.pseudoresonance.resonantbot.rocketleague;
 
 public class RLCommand2 {
 

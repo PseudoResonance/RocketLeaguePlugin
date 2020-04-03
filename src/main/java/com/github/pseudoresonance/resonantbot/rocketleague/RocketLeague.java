@@ -1,13 +1,12 @@
-package com.github.pseudoresonance.resonantbot.gameutils;
+package com.github.pseudoresonance.resonantbot.rocketleague;
 
 import com.github.pseudoresonance.resonantbot.CommandManager;
 import com.github.pseudoresonance.resonantbot.api.Plugin;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.RocketLeagueStats;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.RocketLeagueStats;
 
-public class GameUtils extends Plugin {
+public class RocketLeague extends Plugin {
 
 	public void onEnable() {
-		CommandManager.registerCommand("mc", new MCCommand(), this);
 		CommandManager.registerCommand("rl", new RLCommand(), this);
 	}
 	

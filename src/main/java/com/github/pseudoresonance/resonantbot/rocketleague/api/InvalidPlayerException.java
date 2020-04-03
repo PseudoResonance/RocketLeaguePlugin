@@ -1,4 +1,4 @@
-package com.github.pseudoresonance.resonantbot.gameutils.rocketleague;
+package com.github.pseudoresonance.resonantbot.rocketleague.api;
 
 public class InvalidPlayerException extends IllegalArgumentException {
 	

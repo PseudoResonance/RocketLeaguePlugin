@@ -1,4 +1,4 @@
-package com.github.pseudoresonance.resonantbot.gameutils.rocketleague;
+package com.github.pseudoresonance.resonantbot.rocketleague.api;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -18,18 +18,18 @@ import com.gargoylesoftware.htmlunit.html.HtmlElement;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.github.pseudoresonance.resonantbot.apiplugin.RateLimiter;
 import com.github.pseudoresonance.resonantbot.apiplugin.RequestTimeoutException;
-import com.github.pseudoresonance.resonantbot.gameutils.RLCommand;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.APIReturn;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.Leaderboard;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.LeaderboardEntry;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.LeaderboardStat;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.Platform;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.Player;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.PlaylistStats;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.RewardLevel;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.SeasonStats;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.Stats;
-import com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities.PlaylistStats.StreakType;
+import com.github.pseudoresonance.resonantbot.rocketleague.RLCommand;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.APIReturn;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.Leaderboard;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.LeaderboardEntry;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.LeaderboardStat;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.Platform;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.Player;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.PlaylistStats;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.RewardLevel;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.SeasonStats;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.Stats;
+import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.PlaylistStats.StreakType;
 
 public class RocketLeagueStats {
 	

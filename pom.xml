@@ -3,9 +3,9 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.github.pseudoresonance</groupId>
-	<artifactId>GameUtilsPlugin</artifactId>
+	<artifactId>RocketLeaguePlugin</artifactId>
 	<version>${revision}</version>
-	<name>GameUtils</name>
+	<name>RocketLeague</name>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<revision>1.0</revision>
@@ -152,7 +152,7 @@
 		<dependency>
 			<groupId>io.github.pseudoresonance</groupId>
 			<artifactId>ResonantBot</artifactId>
-			<version>1.0</version>
+			<version>1.0.1</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>

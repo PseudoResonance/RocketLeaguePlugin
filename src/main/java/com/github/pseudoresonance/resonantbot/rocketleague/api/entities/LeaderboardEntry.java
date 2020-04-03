@@ -1,4 +1,4 @@
-package com.github.pseudoresonance.resonantbot.gameutils.rocketleague.entities;
+package com.github.pseudoresonance.resonantbot.rocketleague.api.entities;
 
 public class LeaderboardEntry {
 
