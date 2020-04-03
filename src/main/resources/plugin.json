@@ -1,4 +1,5 @@
 {
-  "Main": "com.github.pseudoresonance.resonantbot.gameutils.GameUtils", 
-  "Name": "Game Integrations"
+  "Main": "com.github.pseudoresonance.resonantbot.gameutils.GameUtils",
+  "Name": "${project.name}",
+  "Version": "${revision}"
 }
