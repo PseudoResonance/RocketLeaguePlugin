@@ -259,7 +259,7 @@ public class RLCommand {
 			if (entry != null) {
 				if (i > 10 * (page - 1))
 					board += "\n";
-				board += lang.getMessage("rocketleague.leaderboardEntry", entry.getPosition(), LanguageManager.escape(entry.getName()), entry.getPlatform().getName(), df.format(entry.getScore()) + entry.getSuffix());
+				board += lang.getMessage("rocketleague.leaderboardEntry", entry.getPosition(), LanguageManager.codeEscape(entry.getName()), entry.getPlatform().getName(), df.format(entry.getScore()) + entry.getSuffix());
 			}
 		}
 		embed.addField(lang.getMessage("main.page", page), board, false);
