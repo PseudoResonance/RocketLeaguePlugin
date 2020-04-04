@@ -4,7 +4,7 @@ import java.util.HashMap;
 
 public class Player {
 	
-	private final static long expiration = 150000000000L;
+	private final static long expiration = 150000L;
 	
 	private final Platform platform;
 	private final String name;
@@ -35,7 +35,7 @@ public class Player {
 		this.seasonStats = seasonStats;
 		this.rewardLevel = rewardLevel;
 		this.url = url;
-		this.creationTime = System.nanoTime();
+		this.creationTime = System.currentTimeMillis();
 	}
 	
 	/**
@@ -99,9 +99,16 @@ public class Player {
 	 * @return Whether or not this {@link Player} has expired
 	 */
 	public boolean isExpired() {
-		if (System.nanoTime() - creationTime > expiration)
+		if (System.currentTimeMillis() - creationTime > expiration)
 			return true;
 		return false;
+	}
+	
+	/**
+	 * @return Creation time of this {@link Player} in milliseconds
+	 */
+	public long creationTime() {
+		return creationTime;
 	}
 
 }

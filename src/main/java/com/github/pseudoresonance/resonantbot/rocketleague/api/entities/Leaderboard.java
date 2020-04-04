@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 public class Leaderboard {
 	
-	private final static long expiration = 1800000000000L;
+	private final static long expiration = 1800000L;
 	
 	private final String name;
 	private final LeaderboardStat stat;
@@ -26,7 +26,7 @@ public class Leaderboard {
 		this.stat = stat;
 		this.leaderboard = leaderboard;
 		this.url = url;
-		this.creationTime = System.nanoTime();
+		this.creationTime = System.currentTimeMillis();
 	}
 	
 	/**
@@ -69,9 +69,16 @@ public class Leaderboard {
 	 * @return Whether or not this {@link Leaderboard} has expired
 	 */
 	public boolean isExpired() {
-		if (System.nanoTime() - creationTime > expiration)
+		if (System.currentTimeMillis() - creationTime > expiration)
 			return true;
 		return false;
+	}
+	
+	/**
+	 * @return Creation time of this {@link Leaderboard} in milliseconds
+	 */
+	public long creationTime() {
+		return creationTime;
 	}
 
 }

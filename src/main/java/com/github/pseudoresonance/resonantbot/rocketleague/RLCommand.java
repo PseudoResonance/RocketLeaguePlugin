@@ -1,6 +1,7 @@
 package com.github.pseudoresonance.resonantbot.rocketleague;
 
 import java.awt.Color;
+import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -13,6 +14,7 @@ import com.github.pseudoresonance.resonantbot.api.CommandHandler;
 import com.github.pseudoresonance.resonantbot.api.Plugin;
 import com.github.pseudoresonance.resonantbot.apiplugin.RequestTimeoutException;
 import com.github.pseudoresonance.resonantbot.data.Data;
+import com.github.pseudoresonance.resonantbot.language.Language;
 import com.github.pseudoresonance.resonantbot.language.LanguageManager;
 import com.github.pseudoresonance.resonantbot.permissions.PermissionGroup;
 import com.github.pseudoresonance.resonantbot.rocketleague.api.InvalidPlayerException;
@@ -77,19 +79,19 @@ public class RLCommand {
 			boolean showBoardTypes = false;
 			if (args.length == 1) {
 				try {
-					page = Integer.valueOf(args[1]);
+					page = Integer.valueOf(args[0]);
 				} catch (NumberFormatException ex) {
-					stat = LeaderboardStat.fromName(args[1]);
+					stat = LeaderboardStat.fromName(args[0]);
 					if (stat == null)
 						showBoardTypes = true;
 				}
 			} else if (args.length >= 2) {
-				stat = LeaderboardStat.fromName(args[1]);
+				stat = LeaderboardStat.fromName(args[0]);
 				if (stat == null)
 					showBoardTypes = true;
 				else {
 					try {
-						page = Integer.valueOf(args[2]);
+						page = Integer.valueOf(args[1]);
 					} catch (NumberFormatException ex) {
 						page = 1;
 					}
@@ -243,10 +245,11 @@ public class RLCommand {
 
 	private static void notifyLeaderboardPage(APIReturn<UUID, Leaderboard> ret) {
 		RequestData dat = returnQueue.remove(ret.getID());
+		Language lang = LanguageManager.getLanguage(dat.getLangId());
 		MessageChannel channel = dat.getChannel();
 		int page = dat.getData();
 		Leaderboard leaderboard = ret.getValue();
-		String title = LanguageManager.getLanguage(dat.getLangId()).getMessage("rocketleague.top", leaderboard.getName());
+		String title = lang.getMessage("rocketleague.top", leaderboard.getName());
 		ArrayList<LeaderboardEntry> rankings = leaderboard.getEntries();
 		EmbedBuilder embed = new EmbedBuilder();
 		embed.setColor(new Color(6, 128, 211));
@@ -256,11 +259,12 @@ public class RLCommand {
 			if (entry != null) {
 				if (i > 10 * (page - 1))
 					board += "\n";
-				board += LanguageManager.getLanguage(dat.getLangId()).getMessage("rocketleague.leaderboardEntry", entry.getPosition(), LanguageManager.escape(entry.getName()), entry.getPlatform().getName(), df.format(entry.getScore()) + entry.getSuffix());
+				board += lang.getMessage("rocketleague.leaderboardEntry", entry.getPosition(), LanguageManager.escape(entry.getName()), entry.getPlatform().getName(), df.format(entry.getScore()) + entry.getSuffix());
 			}
 		}
-		embed.addField(LanguageManager.getLanguage(dat.getLangId()).getMessage("main.page", page), board, false);
+		embed.addField(lang.getMessage("main.page", page), board, false);
 		embed.setTitle(title, leaderboard.getURL());
+		embed.setFooter(lang.formatTimeAgo(new Timestamp(leaderboard.creationTime())));
 		try {
 			Message msg = dat.getPlaceholder().get();
 			msg.editMessage(embed.build()).override(true).queue();
@@ -278,17 +282,19 @@ public class RLCommand {
 	}
 
 	private static void sendPlayer(CompletableFuture<Message> placeholder, MessageChannel channel, long langId, Player p, int seasonID) {
+		Language lang = LanguageManager.getLanguage(langId);
 		EmbedBuilder embed = new EmbedBuilder();
 		embed.setColor(new Color(6, 128, 211));
-		embed.setTitle(LanguageManager.getLanguage(langId).getMessage("rocketleague.playerStatsOnPlatform", LanguageManager.escape(p.getDisplayName()), p.getPlatform().getName()), p.getProfileURL());
+		embed.setTitle(lang.getMessage("rocketleague.playerStatsOnPlatform", LanguageManager.escape(p.getDisplayName()), p.getPlatform().getName()), p.getProfileURL());
 		String season = "";
 		SeasonStats info = p.getSeason(seasonID);
 		if (info != null) {
-			season += getRankedInfo(langId, info.getPlaylists());
+			season += getRankedInfo(lang, info.getPlaylists());
 		} else {
-			season += LanguageManager.getLanguage(langId).getMessage("rocketleague.didNotParticipate");
+			season += lang.getMessage("rocketleague.didNotParticipate");
 		}
-		embed.addField(LanguageManager.getLanguage(langId).getMessage("rocketleague.season", seasonID), season, true);
+		embed.addField(lang.getMessage("rocketleague.season", seasonID), season, true);
+		embed.setFooter(lang.formatTimeAgo(new Timestamp(p.creationTime())));
 		try {
 			Message msg = placeholder.get();
 			msg.editMessage(embed.build()).override(true).queue();
@@ -298,41 +304,43 @@ public class RLCommand {
 	}
 
 	private static void sendPlayer(CompletableFuture<Message> placeholder, MessageChannel channel, long langId, Player p) {
+		Language lang = LanguageManager.getLanguage(langId);
 		EmbedBuilder embed = new EmbedBuilder();
 		embed.setColor(new Color(6, 128, 211));
-		embed.setTitle(LanguageManager.getLanguage(langId).getMessage("rocketleague.playerStatsOnPlatform", LanguageManager.escape(p.getDisplayName()), p.getPlatform().getName()), p.getProfileURL());
+		embed.setTitle(lang.getMessage("rocketleague.playerStatsOnPlatform", LanguageManager.escape(p.getDisplayName()), p.getPlatform().getName()), p.getProfileURL());
 		Stats s = p.getStats();
 		String stats = "";
-		stats += LanguageManager.getLanguage(langId).getMessage("rocketleague.trackerScore", s.getTrackerScore()) + "\n";
-		stats += LanguageManager.getLanguage(langId).getMessage("rocketleague.wins", s.getWins()) + "\n";
-		stats += LanguageManager.getLanguage(langId).getMessage("rocketleague.shots", s.getShots()) + "\n";
-		stats += LanguageManager.getLanguage(langId).getMessage("rocketleague.goals", s.getGoals()) + "\n";
-		stats += LanguageManager.getLanguage(langId).getMessage("rocketleague.shotAccuracy", s.getShotAccuracy()) + "\n";
-		stats += LanguageManager.getLanguage(langId).getMessage("rocketleague.assists", s.getAssists()) + "\n";
-		stats += LanguageManager.getLanguage(langId).getMessage("rocketleague.saves", s.getSaves()) + "\n";
-		stats += LanguageManager.getLanguage(langId).getMessage("rocketleague.mvps", s.getMvps()) + "\n";
-		stats += LanguageManager.getLanguage(langId).getMessage("rocketleague.mvpRate", s.getMvpRate());
-		embed.addField(LanguageManager.getLanguage(langId).getMessage("rocketleague.stats"), stats, true);
+		stats += lang.getMessage("rocketleague.trackerScore", s.getTrackerScore()) + "\n";
+		stats += lang.getMessage("rocketleague.wins", s.getWins()) + "\n";
+		stats += lang.getMessage("rocketleague.shots", s.getShots()) + "\n";
+		stats += lang.getMessage("rocketleague.goals", s.getGoals()) + "\n";
+		stats += lang.getMessage("rocketleague.shotAccuracy", s.getShotAccuracy()) + "\n";
+		stats += lang.getMessage("rocketleague.assists", s.getAssists()) + "\n";
+		stats += lang.getMessage("rocketleague.saves", s.getSaves()) + "\n";
+		stats += lang.getMessage("rocketleague.mvps", s.getMvps()) + "\n";
+		stats += lang.getMessage("rocketleague.mvpRate", s.getMvpRate());
+		embed.addField(lang.getMessage("rocketleague.stats"), stats, true);
 		String style = "";
-		style += LanguageManager.getLanguage(langId).getMessage("rocketleague.playStyleGoals", s.getPlayStyleGoals()) + "\n";
-		style += LanguageManager.getLanguage(langId).getMessage("rocketleague.playStyleAssists", s.getPlayStyleAssists()) + "\n";
-		style += LanguageManager.getLanguage(langId).getMessage("rocketleague.playStyleSaves", s.getPlayStyleSaves());
-		embed.addField(LanguageManager.getLanguage(langId).getMessage("rocketleague.playStyle"), style, true);
+		style += lang.getMessage("rocketleague.playStyleGoals", s.getPlayStyleGoals()) + "\n";
+		style += lang.getMessage("rocketleague.playStyleAssists", s.getPlayStyleAssists()) + "\n";
+		style += lang.getMessage("rocketleague.playStyleSaves", s.getPlayStyleSaves());
+		embed.addField(lang.getMessage("rocketleague.playStyle"), style, true);
 		RewardLevel level = p.getRewardLevel();
 		if (level != null) {
 			String reward = "";
-			reward += LanguageManager.getLanguage(langId).getMessage("rocketleague.rank", level.getRank()) + "\n";
-			reward += LanguageManager.getLanguage(langId).getMessage("rocketleague.wins", level.getWins());
-			embed.addField(LanguageManager.getLanguage(langId).getMessage("rocketleague.rewardLevel"), reward, true);
+			reward += lang.getMessage("rocketleague.rank", level.getRank()) + "\n";
+			reward += lang.getMessage("rocketleague.wins", level.getWins());
+			embed.addField(lang.getMessage("rocketleague.rewardLevel"), reward, true);
 		}
 		String season = "";
 		SeasonStats info = p.getSeason(RLCommand.season);
 		if (info != null) {
-			season += getRankedInfo(langId, info.getPlaylists());
+			season += getRankedInfo(lang, info.getPlaylists());
 		} else {
-			season += LanguageManager.getLanguage(langId).getMessage("rocketleague.didNotParticipate");
+			season += lang.getMessage("rocketleague.didNotParticipate");
 		}
-		embed.addField(LanguageManager.getLanguage(langId).getMessage("rocketleague.season", RLCommand.season), season, true);
+		embed.addField(lang.getMessage("rocketleague.season", RLCommand.season), season, true);
+		embed.setFooter(lang.formatTimeAgo(new Timestamp(p.creationTime())));
 		try {
 			Message msg = placeholder.get();
 			msg.editMessage(embed.build()).override(true).queue();
@@ -341,24 +349,24 @@ public class RLCommand {
 		}
 	}
 
-	private static String getRankedInfo(long langId, ArrayList<PlaylistStats> playlists) {
+	private static String getRankedInfo(Language lang, ArrayList<PlaylistStats> playlists) {
 		String season = "";
 		for (PlaylistStats playlist : playlists) {
 			season += "**" + playlist.getName() + ":** " + playlist.getRank() + "\n";
 			if (playlist.getGames() >= 0) {
 				if (playlist.getStreak() > 0) {
 					if (playlist.getStreakType() == StreakType.WINNING)
-						season += LanguageManager.getLanguage(langId).getMessage("rocketleague.seasonStatsWin", playlist.getRating(), playlist.getGames(), playlist.getStreak()) + "\n";
+						season += lang.getMessage("rocketleague.seasonStatsWin", playlist.getRating(), playlist.getGames(), playlist.getStreak()) + "\n";
 					else
-						season += LanguageManager.getLanguage(langId).getMessage("rocketleague.seasonStatsLoss", playlist.getRating(), playlist.getGames(), playlist.getStreak()) + "\n";
+						season += lang.getMessage("rocketleague.seasonStatsLoss", playlist.getRating(), playlist.getGames(), playlist.getStreak()) + "\n";
 				} else
-					season += LanguageManager.getLanguage(langId).getMessage("rocketleague.seasonStats", playlist.getRating(), playlist.getGames()) + "\n";
+					season += lang.getMessage("rocketleague.seasonStats", playlist.getRating(), playlist.getGames()) + "\n";
 			} else {
-				season += LanguageManager.getLanguage(langId).getMessage("rocketleague.seasonStats", playlist.getRating(), "n/a") + "\n";
+				season += lang.getMessage("rocketleague.seasonStats", playlist.getRating(), "n/a") + "\n";
 			}
 		}
 		if (season.equals(""))
-			season = LanguageManager.getLanguage(langId).getMessage("rocketleague.didNotParticipate");
+			season = lang.getMessage("rocketleague.didNotParticipate");
 		return season;
 	}
 
