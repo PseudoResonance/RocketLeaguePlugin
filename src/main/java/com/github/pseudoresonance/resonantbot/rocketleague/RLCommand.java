@@ -63,15 +63,13 @@ public class RLCommand {
 					Data.setBotSetting("rocketleaguelimit", rateLimit);
 					stats.setRateLimit(TimeUnit.SECONDS, 1, rateLimit);
 					e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.savedRateLimit")).queue();
-					return true;
 				} catch (NullPointerException | NumberFormatException ex) {
 					e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.validRateLimit")).queue();
-					return false;
 				}
 			} else {
 				e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.validRateLimit")).queue();
-				return false;
 			}
+			return true;
 		}, PermissionGroup.BOT_OWNER);
 		cmd.registerSubcommand("leaderboard", (e, command, args) -> {
 			LeaderboardStat stat = LeaderboardStat.TRACKER_SCORE;
