@@ -8,8 +8,6 @@ rocketleague:
   steamCommandDescription: "Allows access to Steam API data"
   invalidPlayer: "Player does not exist"
   validSeason: "Please use a valid season number"
-  savedRateLimit: "Saved rate limit"
-  validRateLimit: "Please add a valid rate limit!"
   botOwnerChangeRateLimit: "Only the bot owner can change the rate limit!"
   validPlayerNameID: "Please add a valid player name or id to get stats for!"
   playerStatsOnPlatform: "**{$1$}'s Stats on {$2$}:**"

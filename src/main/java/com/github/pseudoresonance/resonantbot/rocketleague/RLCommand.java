@@ -62,14 +62,14 @@ public class RLCommand {
 					int rateLimit = Integer.valueOf(args[0]);
 					Data.setBotSetting("rocketleaguelimit", rateLimit);
 					stats.setRateLimit(TimeUnit.SECONDS, 1, rateLimit);
-					e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.savedRateLimit")).queue();
+					e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.savedRateLimit")).queue();
 					return true;
 				} catch (NullPointerException | NumberFormatException ex) {
-					e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validRateLimit")).queue();
+					e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.validRateLimit")).queue();
 					return false;
 				}
 			} else {
-				e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validRateLimit")).queue();
+				e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.validRateLimit")).queue();
 				return false;
 			}
 		}, PermissionGroup.BOT_OWNER);

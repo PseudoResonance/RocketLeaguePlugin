@@ -8,8 +8,6 @@ rocketleague:
   steamCommandDescription: "Steam APIのデータへのアクセスを許可します"
   invalidPlayer: "プレイヤーが存在しません"
   validSeason: "有効なシーズン番号を指定して下さい！"
-  savedRateLimit: "レート制限を設定しました！"
-  validRateLimit: "有効なレート制限を指定して下さい！"
   botOwnerChangeRateLimit: "ボットの所有者しかレート制限を変更できません！"
   validPlayerNameID: "有効なプレーヤの名前かIDを指定して下さい！"
   playerStatsOnPlatform: "**{$2$}　の　{$1$}　の成績：**"
