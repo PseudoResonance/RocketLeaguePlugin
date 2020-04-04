@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -29,6 +30,7 @@ import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.Playlist
 import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.RewardLevel;
 import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.SeasonStats;
 import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.Stats;
+
 import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.PlaylistStats.StreakType;
 
 public class RocketLeagueStats {
@@ -103,12 +105,12 @@ public class RocketLeagueStats {
 	/**
 	 * Gets the {@link Player} with the given name on the given platform.
 	 * 
-	 * @param messageId ID of the requesting message
+	 * @param uuid UUID of request
 	 * @param platform Platform of the player
 	 * @param name Name of the player
 	 * @return CompletableFuture for APIReturn encompassing the messageID and player
 	 */
-	public CompletableFuture<APIReturn<Long, Player>> getPlayer(Long messageId, Platform platform, String name) {
+	public CompletableFuture<APIReturn<UUID, Player>> getPlayer(UUID uuid, Platform platform, String name) {
 		String key = platform.toString() + "|" + name;
 		if (playerBlock.containsKey(key)) {
 			try {
@@ -120,7 +122,7 @@ public class RocketLeagueStats {
 		}
 		if (playerCache.containsKey(key))
 			if (!playerCache.get(key).isExpired())
-				return CompletableFuture.completedFuture(new APIReturn<Long, Player>(messageId, playerCache.get(key)));
+				return CompletableFuture.completedFuture(new APIReturn<UUID, Player>(uuid, playerCache.get(key)));
 		String endpoint = "profile/" + platform.getInternalName() + "/" + name;
 		return CompletableFuture.supplyAsync(() -> {
 			playerBlock.put(key, new Object());
@@ -318,7 +320,7 @@ public class RocketLeagueStats {
 					o.notifyAll();
 					playerBlock.remove(key);
 				}
-				return new APIReturn<Long, Player>(messageId, player);
+				return new APIReturn<UUID, Player>(uuid, player);
 			} catch (FailingHttpStatusCodeException | IOException | InterruptedException e) {
 				throw new RuntimeException(e);
 			} catch (InvalidPlayerException | RequestTimeoutException e) {
@@ -344,11 +346,11 @@ public class RocketLeagueStats {
 	/**
 	 * Gets the {@link Leaderboard} with the given stat type.
 	 * 
-	 * @param messageId ID of the requesting message
+	 * @param uuid UUID of request
 	 * @param stat {@link LeaderboardStat} to get
 	 * @return CompletableFuture for APIReturn encompassing the messageID and leaderboard
 	 */
-	public CompletableFuture<APIReturn<Long, Leaderboard>> getLeaderboard(Long messageId, LeaderboardStat stat) {
+	public CompletableFuture<APIReturn<UUID, Leaderboard>> getLeaderboard(UUID uuid, LeaderboardStat stat) {
 		String key = stat.toString();
 		if (leaderboardBlock.containsKey(key)) {
 			try {
@@ -360,7 +362,7 @@ public class RocketLeagueStats {
 		}
 		if (leaderboardCache.containsKey(key))
 			if (!leaderboardCache.get(key).isExpired())
-				return CompletableFuture.completedFuture(new APIReturn<Long, Leaderboard>(messageId, leaderboardCache.get(key)));
+				return CompletableFuture.completedFuture(new APIReturn<UUID, Leaderboard>(uuid, leaderboardCache.get(key)));
 		String endpoint = "leaderboards/all/" + stat.getInternalName();
 		return CompletableFuture.supplyAsync(() -> {
 			leaderboardBlock.put(key, new Object());
@@ -435,7 +437,7 @@ public class RocketLeagueStats {
 					o.notifyAll();
 					leaderboardBlock.remove(key);
 				}
-				return new APIReturn<Long, Leaderboard>(messageId, leaderboard);
+				return new APIReturn<UUID, Leaderboard>(uuid, leaderboard);
 			} catch (FailingHttpStatusCodeException | IOException e) {
 				throw new RuntimeException(e);
 			} catch (RequestTimeoutException e) {

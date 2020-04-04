@@ -4,16 +4,17 @@ import java.awt.Color;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
-
-import com.github.pseudoresonance.resonantbot.Config;
-import com.github.pseudoresonance.resonantbot.api.Command;
+import com.github.pseudoresonance.resonantbot.api.CommandHandler;
+import com.github.pseudoresonance.resonantbot.api.Plugin;
 import com.github.pseudoresonance.resonantbot.apiplugin.RequestTimeoutException;
 import com.github.pseudoresonance.resonantbot.data.Data;
 import com.github.pseudoresonance.resonantbot.language.LanguageManager;
+import com.github.pseudoresonance.resonantbot.permissions.PermissionGroup;
 import com.github.pseudoresonance.resonantbot.rocketleague.api.InvalidPlayerException;
 import com.github.pseudoresonance.resonantbot.rocketleague.api.RocketLeagueStats;
 import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.APIReturn;
@@ -30,222 +31,255 @@ import com.github.pseudoresonance.resonantbot.rocketleague.api.entities.Playlist
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.ChannelType;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageChannel;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
-public class RLCommand implements Command {
+public class RLCommand {
+
+	private static CommandHandler cmd = null;
 
 	private static RocketLeagueStats stats = null;
-	
+
 	private final static DecimalFormat df = new DecimalFormat("#.#");
 
-	private static LinkedHashMap<Long, ImmutablePair<Long, MessageChannel>> returnQueue = new LinkedHashMap<Long, ImmutablePair<Long, MessageChannel>>();
+	private static LinkedHashMap<UUID, RequestData> returnQueue = new LinkedHashMap<UUID, RequestData>();
 
-	private static LinkedHashMap<Long, Integer> leaderboardPage = new LinkedHashMap<Long, Integer>();
-	private static LinkedHashMap<Long, Integer> playerSeason = new LinkedHashMap<Long, Integer>();
-	
 	private static int season = 0;
 
-	public void onCommand(MessageReceivedEvent e, String command, String[] args) {
-		if (stats == null)
-			stats = new RocketLeagueStats();
-		if (args.length > 0) {
-			if (args[0].equalsIgnoreCase("ratelimit")) {
-				if (e.getAuthor().getIdLong() == Config.getOwner()) {
-					if (args.length > 1) {
-						try {
-							int rateLimit = Integer.valueOf(args[1]);
-							Data.setBotSetting("rocketleaguelimit", rateLimit);
-							stats.setRateLimit(TimeUnit.SECONDS, 1, rateLimit);
-							e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.savedRateLimit")).queue();
-							return;
-						} catch (NullPointerException | NumberFormatException ex) {
-							e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validRateLimit")).queue();
-							return;
-						}
-					} else {
-						e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validRateLimit")).queue();
-						return;
-					}
-				} else {
-					e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.botOwnerChangeRateLimit")).queue();
-					return;
+	public static void setup(Plugin plugin) {
+		if (stats == null) {
+			Object limitO = Data.getBotSetting("rocketleaguelimit");
+			int limit = 2;
+			if (limitO instanceof Integer)
+				limit = (int) limitO;
+			stats = new RocketLeagueStats(TimeUnit.SECONDS, 1, limit);
+		}
+		
+		cmd = new CommandHandler("rocketleague", "rocketleague.help");
+		cmd.registerSubcommand("ratelimit", (e, command, args) -> {
+			if (args.length > 0) {
+				try {
+					int rateLimit = Integer.valueOf(args[0]);
+					Data.setBotSetting("rocketleaguelimit", rateLimit);
+					stats.setRateLimit(TimeUnit.SECONDS, 1, rateLimit);
+					e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.savedRateLimit")).queue();
+					return true;
+				} catch (NullPointerException | NumberFormatException ex) {
+					e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validRateLimit")).queue();
+					return false;
 				}
 			} else {
-				switch (args[0].toLowerCase()) {
-				case "leaderboard":
-					LeaderboardStat stat = LeaderboardStat.TRACKER_SCORE;
-					int page = 1;
-					if (args.length == 1) {
-						e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.validSubcommands", "`score`, `rewardlevel`, `goalshot`, `goals`, `wins`, `shots`, `mvps`, `saves`, `assists`")).queue();
-						return;
+				e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validRateLimit")).queue();
+				return false;
+			}
+		}, PermissionGroup.BOT_OWNER);
+		cmd.registerSubcommand("leaderboard", (e, command, args) -> {
+			LeaderboardStat stat = LeaderboardStat.TRACKER_SCORE;
+			int page = 1;
+			boolean showBoardTypes = false;
+			if (args.length == 1) {
+				try {
+					page = Integer.valueOf(args[1]);
+				} catch (NumberFormatException ex) {
+					stat = LeaderboardStat.fromName(args[1]);
+					if (stat == null)
+						showBoardTypes = true;
+				}
+			} else if (args.length >= 2) {
+				stat = LeaderboardStat.fromName(args[1]);
+				if (stat == null)
+					showBoardTypes = true;
+				else {
+					try {
+						page = Integer.valueOf(args[2]);
+					} catch (NumberFormatException ex) {
+						page = 1;
 					}
-					if (args.length >= 2) {
-						try {
-							page = Integer.valueOf(args[1]);
-						} catch (NumberFormatException ex) {
-							stat = LeaderboardStat.fromName(args[1]);
-							if (stat == null) {
-								e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.validSubcommands", "`score`, `rewardlevel`, `goalshot`, `goals`, `wins`, `shots`, `mvps`, `saves`, `assists`")).queue();
-								return;
-							}
-						}
+				}
+			}
+			if (showBoardTypes) {
+				String options = "";
+				for (LeaderboardStat s : LeaderboardStat.values())
+					options += "`" + s.getInternalName().toLowerCase() + "`, ";
+				options = options.substring(0, options.length() - 1);
+				e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.validSubcommands", options)).queue();
+				return true;
+			}
+			CompletableFuture<Message> placeholder = e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.fetchingData")).submit();
+			UUID uuid = UUID.randomUUID();
+			if (page > 10)
+				page = 10;
+			if (page < 1)
+				page = 1;
+			CompletableFuture<APIReturn<UUID, Leaderboard>> leaderboardRet = stats.getLeaderboard(uuid, stat);
+			leaderboardRet.thenAcceptAsync(RLCommand::notifyLeaderboardPage).exceptionally(ex -> {
+				if (ex instanceof RequestTimeoutException) {
+					String text = LanguageManager.getLanguage(e).getMessage("main.rateLimit");
+					try {
+						Message msg = placeholder.get();
+						msg.editMessage(text).queue();
+					} catch (InterruptedException | ExecutionException e1) {
+						e.getChannel().sendMessage(text).queue();
 					}
-					if (args.length >= 3) {
-						try {
-							page = Integer.valueOf(args[2]);
-						} catch (NumberFormatException ex) {}
+				} else {
+					String text = LanguageManager.getLanguage(e).getMessage("main.errorOccurred");
+					try {
+						Message msg = placeholder.get();
+						msg.editMessage(text).queue();
+					} catch (InterruptedException | ExecutionException e1) {
+						e.getChannel().sendMessage(text).queue();
 					}
-					if (page > 10)
-						page = 10;
-					if (page > 1) {
-						CompletableFuture<APIReturn<Long, Leaderboard>> leaderboardRet = stats.getLeaderboard(e.getMessageIdLong(), stat);
-						leaderboardRet.thenAcceptAsync(RLCommand::notifyLeaderboardPage)
-						.exceptionally(ex -> {if (ex instanceof RequestTimeoutException) e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.rateLimit")).queue(); else e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.errorOccurred")).queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
-						returnQueue.put(e.getMessageIdLong(), new ImmutablePair<Long, MessageChannel>((e.getChannelType() == ChannelType.PRIVATE ? e.getChannel() : e.getGuild()).getIdLong(), e.getChannel()));
-						leaderboardPage.put(e.getMessageIdLong(), page);
-						return;
-					}
-					CompletableFuture<APIReturn<Long, Leaderboard>> leaderboardRet = stats.getLeaderboard(e.getMessageIdLong(), stat);
-					leaderboardRet.thenAcceptAsync(RLCommand::notifyLeaderboard)
-					.exceptionally(ex -> {if (ex instanceof RequestTimeoutException) e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.rateLimit")).queue(); else e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.errorOccurred")).queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
-					returnQueue.put(e.getMessageIdLong(), new ImmutablePair<Long, MessageChannel>((e.getChannelType() == ChannelType.PRIVATE ? e.getChannel() : e.getGuild()).getIdLong(), e.getChannel()));
-					return;
-				case "player":
-					Platform pl = Platform.STEAM;
-					String name = "";
-					int season = -1;
-					if (args.length >= 2) {
-						if (args.length == 2)
+				}
+				returnQueue.remove(uuid);
+				return null;
+			});
+			try {
+				returnQueue.put(uuid, new RequestData(placeholder, (e.getChannelType() == ChannelType.PRIVATE ? e.getChannel() : e.getGuild()).getIdLong(), e.getChannel(), page));
+			} catch (Exception ex) {
+				returnQueue.put(uuid, new RequestData(placeholder, (e.getChannelType() == ChannelType.PRIVATE ? e.getChannel() : e.getGuild()).getIdLong(), e.getChannel(), page));
+			}
+			return true;
+		});
+		cmd.registerSubcommand("player", (e, command, args) -> {
+			Platform pl = Platform.STEAM;
+			String name = "";
+			int season = -1;
+			if (args.length >= 1) {
+				if (args.length == 1)
+					name = args[0];
+				else if (args.length >= 2) {
+					Platform plTest = Platform.fromName(args[0]);
+					if (plTest != null) {
+						if (args[1].length() >= 2) {
 							name = args[1];
-						else if (args.length >= 3) {
-							Platform plTest = Platform.fromName(args[1]);
-							if (plTest != null) {
-								if (args[2].length() >= 3) {
-									name = args[2];
-									pl = plTest;
-									if (args.length >= 4) {
-										try {
-											int seasonTest = Integer.valueOf(args[3]);
-											if (seasonTest > 0)
-												season = seasonTest;
-											else {
-												e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
-												return;
-											}
-										} catch (NumberFormatException ex) {
-											e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
-											return;
-										}
-									}
-								} else {
-									name = args[1];
-									try {
-										int seasonTest = Integer.valueOf(args[2]);
-										if (seasonTest > 0)
-											season = seasonTest;
-										else {
-											e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
-											return;
-										}
-									} catch (NumberFormatException ex) {
-										e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
-										return;
-									}
-								}
-							} else {
-								name = args[1];
+							pl = plTest;
+							if (args.length >= 3) {
 								try {
 									int seasonTest = Integer.valueOf(args[2]);
 									if (seasonTest > 0)
 										season = seasonTest;
 									else {
 										e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
-										return;
+										return true;
 									}
 								} catch (NumberFormatException ex) {
 									e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
-									return;
+									return true;
 								}
+							}
+						} else {
+							name = args[0];
+							try {
+								int seasonTest = Integer.valueOf(args[1]);
+								if (seasonTest > 0)
+									season = seasonTest;
+								else {
+									e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
+									return true;
+								}
+							} catch (NumberFormatException ex) {
+								e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
+								return true;
 							}
 						}
 					} else {
-						e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validPlayerNameID")).queue();
-						return;
-					}
-					if (!name.equals("")) {
-						if (season >= 1) {
-							CompletableFuture<APIReturn<Long, Player>> playerRet = stats.getPlayer(e.getMessageIdLong(), pl, name);
-							playerRet.thenAcceptAsync(RLCommand::notifyPlayer)
-							.exceptionally(ex -> { if (ex instanceof InvalidPlayerException || (ex.getCause() != null && ex.getCause() instanceof InvalidPlayerException)) e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.invalidPlayer")).queue(); else if (ex instanceof RequestTimeoutException) e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.rateLimit")).queue(); else e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.errorOccurred")).queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
-							returnQueue.put(e.getMessageIdLong(), new ImmutablePair<Long, MessageChannel>((e.getChannelType() == ChannelType.PRIVATE ? e.getChannel() : e.getGuild()).getIdLong(), e.getChannel()));
-							playerSeason.put(e.getMessageIdLong(), season);
-							return;
+						name = args[0];
+						try {
+							int seasonTest = Integer.valueOf(args[1]);
+							if (seasonTest > 0)
+								season = seasonTest;
+							else {
+								e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
+								return true;
+							}
+						} catch (NumberFormatException ex) {
+							e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validSeason")).queue();
+							return true;
 						}
-						CompletableFuture<APIReturn<Long, Player>> playerRet = stats.getPlayer(e.getMessageIdLong(), pl, name);
-						playerRet.thenAcceptAsync(RLCommand::notifyPlayer)
-						.exceptionally(ex -> { if (ex instanceof InvalidPlayerException || (ex.getCause() != null && ex.getCause() instanceof InvalidPlayerException)) e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.invalidPlayer")).queue(); else if (ex instanceof RequestTimeoutException) e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.rateLimit")).queue(); else e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.errorOccurred")).queue(); returnQueue.remove(e.getMessageIdLong()); return null;});
-						returnQueue.put(e.getMessageIdLong(), new ImmutablePair<Long, MessageChannel>((e.getChannelType() == ChannelType.PRIVATE ? e.getChannel() : e.getGuild()).getIdLong(), e.getChannel()));
-						return;
 					}
 				}
+			} else {
+				e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("rocketleague.validPlayerNameID")).queue();
+				return true;
 			}
-		}
-		if (e.getAuthor().getIdLong() == Config.getOwner()) {
-			e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.validSubcommands", "`ratelimit`, `playlists`, `player`, `leaderboard`")).queue();
-		} else {
-			e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.validSubcommands", "`playlists`, `player`, `leaderboard`")).queue();
-		}
-		return;
+			if (!name.equals("")) {
+				CompletableFuture<Message> placeholder = e.getChannel().sendMessage(LanguageManager.getLanguage(e).getMessage("main.fetchingData")).submit();
+				UUID uuid = UUID.randomUUID();
+				CompletableFuture<APIReturn<UUID, Player>> playerRet = stats.getPlayer(uuid, pl, name);
+				playerRet.thenAcceptAsync(RLCommand::notifyPlayer).exceptionally(ex -> {
+					if (ex instanceof InvalidPlayerException || (ex.getCause() != null && ex.getCause() instanceof InvalidPlayerException)) {
+						String text = LanguageManager.getLanguage(e).getMessage("rocketleague.invalidPlayer");
+						try {
+							Message msg = placeholder.get();
+							msg.editMessage(text).queue();
+						} catch (InterruptedException | ExecutionException e1) {
+							e.getChannel().sendMessage(text).queue();
+						}
+					} else if (ex instanceof RequestTimeoutException) {
+						String text = LanguageManager.getLanguage(e).getMessage("main.rateLimit");
+						try {
+							Message msg = placeholder.get();
+							msg.editMessage(text).queue();
+						} catch (InterruptedException | ExecutionException e1) {
+							e.getChannel().sendMessage(text).queue();
+						}
+					} else {
+						String text = LanguageManager.getLanguage(e).getMessage("main.errorOccurred");
+						try {
+							Message msg = placeholder.get();
+							msg.editMessage(text).queue();
+						} catch (InterruptedException | ExecutionException e1) {
+							e.getChannel().sendMessage(text).queue();
+						}
+					}
+					returnQueue.remove(uuid);
+					return null;
+				});
+				returnQueue.put(uuid, new RequestData(placeholder, (e.getChannelType() == ChannelType.PRIVATE ? e.getChannel() : e.getGuild()).getIdLong(), e.getChannel(), season));
+				return true;
+			}
+			return true;
+		});
+		cmd.register(plugin);
 	}
 
-	private static void notifyLeaderboard(APIReturn<Long, Leaderboard> ret) {
-		ImmutablePair<Long, MessageChannel> pair = returnQueue.remove(ret.getID());
-		MessageChannel channel = pair.getValue();
+	private static void notifyLeaderboardPage(APIReturn<UUID, Leaderboard> ret) {
+		RequestData dat = returnQueue.remove(ret.getID());
+		MessageChannel channel = dat.getChannel();
+		int page = dat.getData();
 		Leaderboard leaderboard = ret.getValue();
-		String title = LanguageManager.getLanguage(pair.getKey()).getMessage("rocketleague.top", leaderboard.getName());
+		String title = LanguageManager.getLanguage(dat.getLangId()).getMessage("rocketleague.top", leaderboard.getName());
 		ArrayList<LeaderboardEntry> rankings = leaderboard.getEntries();
-		sendLeaderboard(channel, pair.getKey(), rankings, 0, 10, title, leaderboard.getURL(), 1);
-	}
-
-	private static void notifyLeaderboardPage(APIReturn<Long, Leaderboard> ret) {
-		ImmutablePair<Long, MessageChannel> pair = returnQueue.remove(ret.getID());
-		MessageChannel channel = pair.getValue();
-		int page = leaderboardPage.remove(ret.getID());
-		Leaderboard leaderboard = ret.getValue();
-		String title = LanguageManager.getLanguage(pair.getKey()).getMessage("rocketleague.top", leaderboard.getName());
-		ArrayList<LeaderboardEntry> rankings = leaderboard.getEntries();
-		sendLeaderboard(channel, pair.getKey(), rankings, 10 * (page - 1), 10 * page, title, leaderboard.getURL(), page);
-	}
-	
-	private static void sendLeaderboard(MessageChannel channel, long langId, ArrayList<LeaderboardEntry> rankings, int start, int max, String title, String url, int page) {
 		EmbedBuilder embed = new EmbedBuilder();
 		embed.setColor(new Color(6, 128, 211));
 		String board = "";
-		for (int i = start; i < max; i++) {
+		for (int i = 10 * (page - 1); i < 10 * page; i++) {
 			LeaderboardEntry entry = rankings.get(i);
 			if (entry != null) {
-				if (i > start)
+				if (i > 10 * (page - 1))
 					board += "\n";
-				board += LanguageManager.getLanguage(langId).getMessage("rocketleague.leaderboardEntry", entry.getPosition(), LanguageManager.escape(entry.getName()), entry.getPlatform().getName(), df.format(entry.getScore()) + entry.getSuffix());
+				board += LanguageManager.getLanguage(dat.getLangId()).getMessage("rocketleague.leaderboardEntry", entry.getPosition(), LanguageManager.escape(entry.getName()), entry.getPlatform().getName(), df.format(entry.getScore()) + entry.getSuffix());
 			}
 		}
-		embed.addField(LanguageManager.getLanguage(langId).getMessage("rocketleague.page", page), board, false);
-		embed.setTitle(title, url);
-		channel.sendMessage(embed.build()).queue();
-	}
-	
-	private static void notifyPlayer(APIReturn<Long, Player> ret) {
-		ImmutablePair<Long, MessageChannel> pair = returnQueue.remove(ret.getID());
-		if (!playerSeason.containsKey(ret.getID()))
-			sendPlayer(pair.getValue(), pair.getKey(), ret.getValue());
-		else {
-			int season = playerSeason.remove(ret.getID());
-			sendPlayer(pair.getValue(), pair.getKey(), ret.getValue(), season);
+		embed.addField(LanguageManager.getLanguage(dat.getLangId()).getMessage("main.page", page), board, false);
+		embed.setTitle(title, leaderboard.getURL());
+		try {
+			Message msg = dat.getPlaceholder().get();
+			msg.editMessage(embed.build()).override(true).queue();
+		} catch (InterruptedException | ExecutionException e) {
+			channel.sendMessage(embed.build()).queue();
 		}
 	}
-	
-	private static void sendPlayer(MessageChannel channel, long langId, Player p, int seasonID) {
+
+	private static void notifyPlayer(APIReturn<UUID, Player> ret) {
+		RequestData dat = returnQueue.remove(ret.getID());
+		if (dat.getData() < 1)
+			sendPlayer(dat.getPlaceholder(), dat.getChannel(), dat.getLangId(), ret.getValue());
+		else
+			sendPlayer(dat.getPlaceholder(), dat.getChannel(), dat.getLangId(), ret.getValue(), dat.getData());
+	}
+
+	private static void sendPlayer(CompletableFuture<Message> placeholder, MessageChannel channel, long langId, Player p, int seasonID) {
 		EmbedBuilder embed = new EmbedBuilder();
 		embed.setColor(new Color(6, 128, 211));
 		embed.setTitle(LanguageManager.getLanguage(langId).getMessage("rocketleague.playerStatsOnPlatform", LanguageManager.escape(p.getDisplayName()), p.getPlatform().getName()), p.getProfileURL());
@@ -257,10 +291,15 @@ public class RLCommand implements Command {
 			season += LanguageManager.getLanguage(langId).getMessage("rocketleague.didNotParticipate");
 		}
 		embed.addField(LanguageManager.getLanguage(langId).getMessage("rocketleague.season", seasonID), season, true);
-		channel.sendMessage(embed.build()).queue();
+		try {
+			Message msg = placeholder.get();
+			msg.editMessage(embed.build()).override(true).queue();
+		} catch (InterruptedException | ExecutionException e) {
+			channel.sendMessage(embed.build()).queue();
+		}
 	}
-	
-	private static void sendPlayer(MessageChannel channel, long langId, Player p) {
+
+	private static void sendPlayer(CompletableFuture<Message> placeholder, MessageChannel channel, long langId, Player p) {
 		EmbedBuilder embed = new EmbedBuilder();
 		embed.setColor(new Color(6, 128, 211));
 		embed.setTitle(LanguageManager.getLanguage(langId).getMessage("rocketleague.playerStatsOnPlatform", LanguageManager.escape(p.getDisplayName()), p.getPlatform().getName()), p.getProfileURL());
@@ -296,9 +335,14 @@ public class RLCommand implements Command {
 			season += LanguageManager.getLanguage(langId).getMessage("rocketleague.didNotParticipate");
 		}
 		embed.addField(LanguageManager.getLanguage(langId).getMessage("rocketleague.season", RLCommand.season), season, true);
-		channel.sendMessage(embed.build()).queue();
+		try {
+			Message msg = placeholder.get();
+			msg.editMessage(embed.build()).override(true).queue();
+		} catch (InterruptedException | ExecutionException e) {
+			channel.sendMessage(embed.build()).queue();
+		}
 	}
-	
+
 	private static String getRankedInfo(long langId, ArrayList<PlaylistStats> playlists) {
 		String season = "";
 		for (PlaylistStats playlist : playlists) {
@@ -319,21 +363,44 @@ public class RLCommand implements Command {
 			season = LanguageManager.getLanguage(langId).getMessage("rocketleague.didNotParticipate");
 		return season;
 	}
-	
+
 	public static void setSeason(int season) {
 		RLCommand.season = season;
 	}
-	
+
 	public static int getSeason() {
 		return season;
 	}
 
-	public String getDesc(long id) {
-		return LanguageManager.getLanguage(id).getMessage("rocketleague.rlCommandDescription");
-	}
+	private static class RequestData {
 
-	public boolean isHidden() {
-		return false;
+		private CompletableFuture<Message> placeholder;
+		private long langId;
+		private MessageChannel channel;
+		private int data;
+
+		public RequestData(CompletableFuture<Message> placeholder, long langId, MessageChannel channel, int data) {
+			this.placeholder = placeholder;
+			this.langId = langId;
+			this.channel = channel;
+			this.data = data;
+		}
+
+		public CompletableFuture<Message> getPlaceholder() {
+			return placeholder;
+		}
+
+		public long getLangId() {
+			return langId;
+		}
+
+		public MessageChannel getChannel() {
+			return channel;
+		}
+
+		public int getData() {
+			return data;
+		}
 	}
 
 }

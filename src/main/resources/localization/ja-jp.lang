@@ -36,6 +36,4 @@ rocketleague:
   season: "シーズン　{$1$}："
   top: "トップ　{$1$}："
   leaderboardEntry: "**{$1$}**： {$3$}　の　`{$2$}`： {$4$}"
-  page: "ページ　{$1$}："
-  rlCommandDescription: "ロケットリーグの成績を表示する"
-  fetchingData: "データを取得しています！お待ち下さい！"
+  help: "ロケットリーグの成績を表示する"

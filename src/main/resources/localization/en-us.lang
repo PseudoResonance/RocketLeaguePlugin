@@ -36,6 +36,4 @@ rocketleague:
   season: "Season {$1$}:"
   top: "Top {$1$}:"
   leaderboardEntry: "**{$1$}**: `{$2$}` on {$3$}: {$4$}"
-  page: "Page {$1$}:"
-  rlCommandDescription: "Displays Rocket League stats"
-  fetchingData: "Fetching data! Please wait!"
+  help: "Displays Rocket League stats"
