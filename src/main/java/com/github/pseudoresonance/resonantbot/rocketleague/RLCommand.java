@@ -57,7 +57,7 @@ public class RLCommand {
 			stats = new RocketLeagueStats(TimeUnit.SECONDS, 1, limit);
 		}
 		
-		cmd = new CommandHandler("rocketleague", "rocketleague.help");
+		cmd = new CommandHandler("rocketleague", "rocketleague.help", "rl");
 		cmd.registerSubcommand("ratelimit", (e, command, args) -> {
 			if (args.length > 0) {
 				try {
